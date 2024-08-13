@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simple Word Processor</title>
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiU2ltcGxlIFdvcmQgUHJvY2Vzc29yIiwic2hvcnRfbmFtZSI6IldvcmQgUHJvY2Vzc29yIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwMDAwMDAiLCJ0aGVtZV9jb2xvciI6IiMwMDAwMDAifQ==">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Word Processor">
+    <link rel="apple-touch-icon" href="data:image/png;base64,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">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        body {
+            background-color: black;
+            display: flex;
+            flex-direction: column;
+        }
+        #editor {
+            flex-grow: 1;
+            width: 100%;
+            background-color: black;
+            color: white;
+            font-family: "Courier New", monospace;
+            font-size: 16px;
+            border: none;
+            outline: none;
+            resize: none;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        #status {
+            color: white;
+            font-family: "Courier New", monospace;
+            font-size: 12px;
+            padding: 5px 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <textarea id="editor" placeholder="Start typing here..."></textarea>
+    <div id="status"></div>
+
+    <script>
+        const editor = document.getElementById('editor');
+        const status = document.getElementById('status');
+
+        // Load saved content when the page loads
+        window.onload = function() {
+            const savedContent = localStorage.getItem('editorContent');
+            if (savedContent) {
+                editor.value = savedContent;
+            }
+            editor.focus();
+        }
+
+        // Save content every 5 seconds
+        setInterval(function() {
+            localStorage.setItem('editorContent', editor.value);
+            status.textContent = 'Auto-saved at ' + new Date().toLocaleTimeString();
+        }, 5000);
+
+        // Save content when the user stops typing
+        let typingTimer;
+        editor.addEventListener('input', function() {
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(function() {
+                localStorage.setItem('editorContent', editor.value);
+                status.textContent = 'Saved after typing at ' + new Date().toLocaleTimeString();
+            }, 1000);
+        });
+
+        // Prevent zooming
+        document.addEventListener('touchmove', function (event) {
+            if (event.scale !== 1) { event.preventDefault(); }
+        }, { passive: false });
+    </script>
+</body>
+</html>
