@@ -7,7 +7,8 @@
     <style>
         @font-face {
             font-family: 'CustomFont';
-            src: url('wordprocessor/mononoki-Regular.woff') format('woff'),
+            src: url('path/to/your/font.woff') format('woff'),
+                 url('path/to/your/font.otf') format('opentype');
             font-weight: normal;
             font-style: normal;
         }
@@ -41,9 +42,17 @@
         body {
             display: flex;
             flex-direction: column;
+            font-family: 'CustomFont', "Courier New", monospace;
+        }
+
+        body.light-mode {
             background-color: var(--base3);
             color: var(--base00);
-            font-family: 'CustomFont', "Courier New", monospace;
+        }
+
+        body.dark-mode {
+            background-color: var(--base03);
+            color: var(--base0);
         }
 
         #editor {
@@ -56,15 +65,30 @@
             resize: none;
             padding: 10px;
             box-sizing: border-box;
+        }
+
+        .light-mode #editor {
             background-color: var(--base3);
             color: var(--base00);
+        }
+
+        .dark-mode #editor {
+            background-color: var(--base03);
+            color: var(--base0);
         }
 
         #status {
             font-size: 12px;
             padding: 5px 10px;
             text-align: center;
+        }
+
+        .light-mode #status {
             color: var(--base01);
+        }
+
+        .dark-mode #status {
+            color: var(--base1);
         }
 
         #mode-toggle {
@@ -72,11 +96,19 @@
             top: 10px;
             right: 10px;
             padding: 5px 10px;
-            background-color: var(--base2);
-            color: var(--base01);
             border: none;
             cursor: pointer;
             font-family: inherit;
+        }
+
+        .light-mode #mode-toggle {
+            background-color: var(--base2);
+            color: var(--base01);
+        }
+
+        .dark-mode #mode-toggle {
+            background-color: var(--base02);
+            color: var(--base1);
         }
 
         @media (prefers-color-scheme: dark) {
@@ -107,7 +139,7 @@
         }
     </style>
 </head>
-<body>
+<body class="light-mode">
     <textarea id="editor" placeholder="Start typing here..."></textarea>
     <div id="status"></div>
     <button id="mode-toggle">Toggle Dark Mode</button>
@@ -116,14 +148,29 @@
         const editor = document.getElementById('editor');
         const status = document.getElementById('status');
         const modeToggle = document.getElementById('mode-toggle');
+        const body = document.body;
 
-        // Load saved content when the page loads
+        // Function to toggle between light and dark mode
+        function toggleDarkMode() {
+            body.classList.toggle('light-mode');
+            body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', body.classList.contains('dark-mode'));
+        }
+
+        // Load saved content and dark mode preference when the page loads
         window.onload = function() {
             const savedContent = localStorage.getItem('editorContent');
             if (savedContent) {
                 editor.value = savedContent;
             }
             editor.focus();
+
+            // Check for saved dark mode preference
+            const darkModePreference = localStorage.getItem('darkMode');
+            if (darkModePreference === 'true') {
+                body.classList.remove('light-mode');
+                body.classList.add('dark-mode');
+            }
         }
 
         // Save content every 5 seconds
@@ -144,9 +191,7 @@
 
         // Toggle between light and dark mode (only for non-mobile devices)
         if (window.matchMedia("(min-width: 769px)").matches) {
-            modeToggle.addEventListener('click', function() {
-                document.body.classList.toggle('dark-mode');
-            });
+            modeToggle.addEventListener('click', toggleDarkMode);
         }
 
         // Prevent zooming
