@@ -7,7 +7,7 @@
     <style>
         @font-face {
             font-family: 'CustomFont';
-            src: url('fonts/mononoki-Regular.woff2') format('woff2'),
+            src: url('fonts/mononoki-Regular.woff2') format('woff2');
             font-weight: normal;
             font-style: normal;
         }
@@ -62,7 +62,7 @@
             border: none;
             outline: none;
             resize: none;
-            padding: 10px;
+            padding: 0px 5vw 20px 5vw;
             box-sizing: border-box;
         }
 
@@ -91,7 +91,8 @@
         }
 
         #mode-toggle {
-            position: absolute;
+            position: fixed;
+            z-index: 100;
             top: 10px;
             right: 10px;
             padding: 5px 10px;
@@ -108,6 +109,145 @@
         .dark-mode #mode-toggle {
             background-color: var(--base02);
             color: var(--base1);
+        }
+
+        .tab-bar {
+            display: flex;
+            background-color: var(--base2);
+            padding: 8px 5vw 0 5vw;
+            gap: 4px;
+        }
+
+        .document-title {
+            text-align: center;
+            padding: 15px 0;
+            font-family: 'CustomFont', "Courier New", monospace;
+            border: none;
+            background: transparent;
+            width: 50%;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .light-mode .document-title {
+            color: var(--base00);
+        }
+
+        .dark-mode .document-title {
+            color: var(--base0);
+        }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            font-family: 'CustomFont', "Courier New", monospace;
+            padding: 8px 16px;
+            background-color: var(--base3);
+            color: var(--base00);
+            border: none;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .close-button {
+            margin-left: 8px;
+            padding: 2px 6px;
+            cursor: pointer;
+            background-color: var(--base2);
+            font-size: 14px;
+            line-height: 14px;
+        }
+
+        .dark-mode .close-button {
+            background-color: var(--base02);
+        }
+
+        .close-button:hover {
+            background-color: var(--red);
+            color: var(--base3);
+        }
+
+        .tab.active {
+            opacity: 1;
+        }
+
+        .dark-mode .tab-bar {
+            background-color: var(--base02);
+        }
+
+        .dark-mode .tab {
+            background-color: var(--base03);
+            color: var(--base0);
+        }
+
+        .new-tab-button {
+            padding: 8px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--base00);
+        }
+
+        .dark-mode .new-tab-button {
+            color: var(--base0);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background-color: var(--base3);
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 400px;
+            width: 90%;
+            font-family: 'CustomFont', "Courier New", monospace;
+        }
+
+        .dark-mode .modal {
+            background-color: var(--base03);
+            color: var(--base0);
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .confirm-button {
+            background-color: var(--red);
+            color: var(--base3);
+        }
+
+        .cancel-button {
+            background-color: var(--base2);
+            color: var(--base00);
+        }
+
+        .dark-mode .cancel-button {
+            background-color: var(--base02);
+            color: var(--base0);
         }
 
         @media (prefers-color-scheme: dark) {
@@ -133,70 +273,242 @@
 
         @media (max-width: 768px) {
             #mode-toggle {
-                display: none;
+                position: fixed;
+                bottom: 10px;  /* Position at bottom instead of top */
+                right: 10px;
+                top: auto;     /* Override the top positioning */
+                font-size: 14px;
+                padding: 8px 12px;
+                border-radius: 20px;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+                z-index: 1000;
             }
         }
     </style>
 </head>
 <body class="light-mode">
+    <div class="tab-bar">
+        <!-- tabs will be rendered here -->
+    </div>
+    <input type="text" class="document-title" placeholder="untitled document">
     <textarea id="editor" placeholder="Start typing here..."></textarea>
     <div id="status"></div>
     <button id="mode-toggle">Toggle Dark Mode</button>
 
+    <div class="modal-overlay">
+        <div class="modal">
+            <h3>Close Tab</h3>
+            <p>Are you sure you want to close this tab? This action cannot be undone.</p>
+            <div class="modal-buttons">
+                <button class="modal-button cancel-button">Cancel</button>
+                <button class="modal-button confirm-button">Close Tab</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        let tabs = [];
+        let activeTabId = null;
+        let tabToClose = null;
+        
         const editor = document.getElementById('editor');
         const status = document.getElementById('status');
         const modeToggle = document.getElementById('mode-toggle');
+        const titleInput = document.querySelector('.document-title');
+        const modalOverlay = document.querySelector('.modal-overlay');
+        const confirmButton = document.querySelector('.confirm-button');
+        const cancelButton = document.querySelector('.cancel-button');
         const body = document.body;
 
-        // Function to toggle between light and dark mode
         function toggleDarkMode() {
             body.classList.toggle('light-mode');
             body.classList.toggle('dark-mode');
+            modeToggle.textContent = body.classList.contains('dark-mode') ? 'Toggle Light Mode' : 'Toggle Dark Mode';
             localStorage.setItem('darkMode', body.classList.contains('dark-mode'));
         }
 
-        // Load saved content and dark mode preference when the page loads
-        window.onload = function() {
-            const savedContent = localStorage.getItem('editorContent');
-            if (savedContent) {
-                editor.value = savedContent;
-            }
-            editor.focus();
+        function createNewTab() {
+            const newTab = {
+                id: Date.now().toString(),
+                title: '',
+                content: '',
+                isModified: false
+            };
+            tabs.push(newTab);
+            activeTabId = newTab.id;
+            saveTabsToStorage();
+            renderTabs();
+            loadActiveTab();
+        }
 
-            // Check for saved dark mode preference
+        function switchTab(tabId) {
+            saveCurrentTab();
+            activeTabId = tabId;
+            localStorage.setItem('activeTabId', tabId);
+            loadActiveTab();
+            renderTabs();
+        }
+
+        function saveCurrentTab() {
+            const currentTab = tabs.find(tab => tab.id === activeTabId);
+            if (currentTab) {
+                currentTab.content = editor.value;
+                currentTab.title = titleInput.value;
+                currentTab.isModified = false;
+                saveTabsToStorage();
+            }
+        }
+
+        function loadActiveTab() {
+            const currentTab = tabs.find(tab => tab.id === activeTabId);
+            if (currentTab) {
+                editor.value = currentTab.content || '';
+                titleInput.value = currentTab.title || '';
+            }
+        }
+
+        function showCloseModal(tabId) {
+            tabToClose = tabId;
+            modalOverlay.style.display = 'flex';
+        }
+
+        function hideCloseModal() {
+            modalOverlay.style.display = 'none';
+            tabToClose = null;
+        }
+
+        function closeTab(tabId) {
+            const index = tabs.findIndex(tab => tab.id === tabId);
+            if (index !== -1) {
+                tabs.splice(index, 1);
+                
+                if (tabs.length === 0) {
+                    createNewTab();
+                } else if (activeTabId === tabId) {
+                    activeTabId = tabs[Math.max(0, index - 1)].id;
+                }
+                
+                saveTabsToStorage();
+                renderTabs();
+                loadActiveTab();
+            }
+        }
+
+        function renderTabs() {
+            const tabBar = document.querySelector('.tab-bar');
+            tabBar.innerHTML = '';
+            
+            tabs.forEach(tab => {
+                const tabElement = document.createElement('button');
+                tabElement.className = `tab ${tab.id === activeTabId ? 'active' : ''}`;
+                tabElement.textContent = tab.title || `file${tabs.indexOf(tab) + 1}`;
+                tabElement.addEventListener('click', () => switchTab(tab.id));
+                
+                const closeButton = document.createElement('span');
+                closeButton.textContent = '×';
+                closeButton.className = 'close-button';
+                closeButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showCloseModal(tab.id);
+                });
+                
+                tabElement.appendChild(closeButton);
+                tabBar.appendChild(tabElement);
+            });
+            
+            const newTabButton = document.createElement('button');
+            newTabButton.className = 'new-tab-button';
+            newTabButton.textContent = '+';
+            newTabButton.addEventListener('click', createNewTab);
+            tabBar.appendChild(newTabButton);
+        }
+
+        function saveTabsToStorage() {
+            const tabsData = tabs.map(tab => ({
+                id: tab.id,
+                title: tab.title,
+                content: tab.content,
+                isModified: tab.isModified
+            }));
+            localStorage.setItem('tabs', JSON.stringify(tabsData));
+            localStorage.setItem('activeTabId', activeTabId);
+        }
+
+        window.onload = function() {
             const darkModePreference = localStorage.getItem('darkMode');
             if (darkModePreference === 'true') {
                 body.classList.remove('light-mode');
                 body.classList.add('dark-mode');
+                modeToggle.textContent = 'Toggle Light Mode';
+            }
+
+            const savedTabs = JSON.parse(localStorage.getItem('tabs')) || [];
+            if (savedTabs.length === 0) {
+                createNewTab();
+            } else {
+                tabs = savedTabs.map(tab => ({
+                    id: tab.id,
+                    title: tab.title || '',
+                    content: tab.content || '',
+                    isModified: tab.isModified
+                }));
+                activeTabId = localStorage.getItem('activeTabId') || tabs[0].id;
+                renderTabs();
+                loadActiveTab();
             }
         }
 
-        // Save content every 5 seconds
-        setInterval(function() {
-            localStorage.setItem('editorContent', editor.value);
+        titleInput.addEventListener('input', () => {
+            const currentTab = tabs.find(tab => tab.id === activeTabId);
+            if (currentTab) {
+                currentTab.title = titleInput.value || `File ${tabs.indexOf(currentTab) + 1}`;
+                saveTabsToStorage();
+                renderTabs();
+            }
+        });
+
+        editor.addEventListener('input', () => {
+            const currentTab = tabs.find(tab => tab.id === activeTabId);
+            if (currentTab) {
+                currentTab.isModified = true;
+                renderTabs();
+            }
+        });
+
+        confirmButton.addEventListener('click', () => {
+            if (tabToClose) {
+                closeTab(tabToClose);
+                hideCloseModal();
+            }
+        });
+
+        cancelButton.addEventListener('click', hideCloseModal);
+
+        // Add dark mode toggle for all screen sizes
+        modeToggle.addEventListener('click', toggleDarkMode);
+
+        document.addEventListener('touchmove', function (event) {
+            if (event.scale !== 1) { event.preventDefault(); }
+        }, { passive: false });
+
+        setInterval(() => {
+            if (activeTabId) {
+                saveCurrentTab();
+                renderTabs();
+            }
             status.textContent = 'Auto-saved at ' + new Date().toLocaleTimeString();
         }, 5000);
 
-        // Save content when the user stops typing
         let typingTimer;
         editor.addEventListener('input', function() {
             clearTimeout(typingTimer);
             typingTimer = setTimeout(function() {
-                localStorage.setItem('editorContent', editor.value);
+                if (activeTabId) {
+                    saveCurrentTab();
+                }
                 status.textContent = 'Saved after typing at ' + new Date().toLocaleTimeString();
             }, 1000);
         });
-
-        // Toggle between light and dark mode (only for non-mobile devices)
-        if (window.matchMedia("(min-width: 769px)").matches) {
-            modeToggle.addEventListener('click', toggleDarkMode);
-        }
-
-        // Prevent zooming
-        document.addEventListener('touchmove', function (event) {
-            if (event.scale !== 1) { event.preventDefault(); }
-        }, { passive: false });
     </script>
 </body>
 </html>
