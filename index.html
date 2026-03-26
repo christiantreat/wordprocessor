@@ -359,6 +359,102 @@
         .drop-zone.visible { display: flex; }
         .light-mode .drop-zone { background-color: rgba(238, 232, 213, 0.92); color: var(--base01); }
         .dark-mode .drop-zone { background-color: rgba(0, 43, 54, 0.92); color: var(--base1); }
+
+        /* ── Page View ── */
+        body.page-view.light-mode { background-color: var(--base2); }
+        body.page-view.dark-mode { background-color: var(--base02); }
+
+        body.page-view #editor {
+            max-width: var(--page-width, 816px);
+            align-self: center;
+            box-shadow: 0 1px 10px rgba(0, 0, 0, 0.12);
+            padding-left: var(--page-margin, 96px);
+            padding-right: var(--page-margin, 96px);
+        }
+        body.page-view.light-mode #editor { background-color: var(--base3); }
+        body.page-view.dark-mode #editor { background-color: var(--base03); }
+
+        /* ── Page Setup Modal ── */
+        .page-setup-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .page-setup-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 13px;
+        }
+
+        .page-setup-row select,
+        .page-setup-row button {
+            font-family: inherit;
+            font-size: 12px;
+            padding: 4px 10px;
+            border: 1px solid var(--base01);
+            cursor: pointer;
+        }
+        .light-mode .page-setup-row select,
+        .light-mode .page-setup-row button { background-color: var(--base2); color: var(--base00); }
+        .dark-mode .page-setup-row select,
+        .dark-mode .page-setup-row button { background-color: var(--base02); color: var(--base0); }
+
+        .page-setup-row button.active {
+            background-color: var(--cyan);
+            color: var(--base3);
+            border-color: var(--cyan);
+        }
+
+        #status-right .page-setup-link {
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.15s;
+        }
+        #status-right .page-setup-link:hover { opacity: 1; }
+
+        /* ── Print Content ── */
+        .print-content { display: none; }
+
+        @media print {
+            .tab-bar, .toolbar, #status-bar, #mode-toggle, .find-bar,
+            .modal-overlay, .page-setup-overlay, .toast, .drop-zone,
+            .document-title, #editor { display: none !important; }
+
+            body { background: white !important; }
+
+            .print-content {
+                display: block !important;
+                white-space: pre-wrap;
+                font-family: 'CustomFont', "Courier New", monospace;
+                font-size: var(--font-size, 16px);
+                line-height: 1.6;
+                color: #000 !important;
+                padding: 0;
+                margin: 0;
+            }
+            .print-content .print-section {
+                white-space: pre-wrap;
+            }
+            .print-content .print-page-break {
+                page-break-before: always;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body.page-view #editor {
+                max-width: 100%;
+                box-shadow: none;
+                padding-left: var(--page-margin, 48px);
+                padding-right: var(--page-margin, 48px);
+            }
+        }
     </style>
 </head>
 <body class="light-mode">
@@ -385,12 +481,13 @@
         <button data-action="open-file">Open</button>
         <button data-action="font-up">A+</button>
         <button data-action="font-down">A-</button>
+        <button data-action="page-setup">Page</button>
     </div>
 
     <div id="status-bar">
         <div class="left" id="status-left"></div>
         <div class="center" id="status-center"></div>
-        <div class="right" id="status-right"></div>
+        <div class="right" id="status-right"><span class="page-setup-link" id="page-setup-btn">page setup</span></div>
     </div>
 
     <button id="mode-toggle">dark</button>
@@ -406,8 +503,38 @@
         </div>
     </div>
 
+    <div class="page-setup-overlay" id="page-setup-overlay">
+        <div class="modal">
+            <h3>Page Setup</h3>
+            <div class="page-setup-row">
+                <span>View as page</span>
+                <button id="page-view-toggle">off</button>
+            </div>
+            <div class="page-setup-row">
+                <span>Paper size</span>
+                <select id="paper-size">
+                    <option value="letter">Letter</option>
+                    <option value="a4">A4</option>
+                </select>
+            </div>
+            <div class="page-setup-row">
+                <span>Margins</span>
+                <select id="page-margins">
+                    <option value="normal">Normal</option>
+                    <option value="narrow">Narrow</option>
+                    <option value="wide">Wide</option>
+                </select>
+            </div>
+            <p style="margin-top:12px; font-size:11px; opacity:0.7;">Insert page break: Shift + Enter<br>Print: Ctrl + P</p>
+            <div class="modal-buttons" style="margin-top: 12px;">
+                <button class="modal-button cancel-button" id="page-setup-done">Done</button>
+            </div>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
     <div class="drop-zone" id="drop-zone">Drop file to open</div>
+    <div class="print-content" id="print-content"></div>
 
     <input type="file" id="file-input" accept=".txt,.md,.text,.log,.csv,.json,.js,.html,.css,.py,.xml,.yaml,.yml,.ini,.cfg,.sh,.bat" style="display:none">
 
@@ -422,6 +549,10 @@
         let undoStacks = {};       // tabId -> [{ content, cursor }]
         let redoStacks = {};       // tabId -> [{ content, cursor }]
         let dragTabId = null;
+
+        const PAGE_BREAK_MARKER = '--- page break ---';
+        const PAGE_SIZES = { letter: 816, a4: 794 };
+        const PAGE_MARGINS = { normal: 96, narrow: 48, wide: 120 };
 
         const editor = document.getElementById('editor');
         const titleInput = document.querySelector('.document-title');
@@ -477,6 +608,84 @@
             localStorage.setItem('fontSize', size);
             showToast(size + 'px');
         }
+
+        /* ══════════════════════════════════════
+           Page Setup
+        ══════════════════════════════════════ */
+        const pageSetupOverlay = document.getElementById('page-setup-overlay');
+        const pageViewToggle = document.getElementById('page-view-toggle');
+        const paperSizeSelect = document.getElementById('paper-size');
+        const pageMarginsSelect = document.getElementById('page-margins');
+
+        function openPageSetup() {
+            pageSetupOverlay.style.display = 'flex';
+        }
+
+        function closePageSetup() {
+            pageSetupOverlay.style.display = 'none';
+            editor.focus();
+        }
+
+        function setPageView(on) {
+            body.classList.toggle('page-view', on);
+            pageViewToggle.textContent = on ? 'on' : 'off';
+            pageViewToggle.classList.toggle('active', on);
+            localStorage.setItem('pageView', on);
+        }
+
+        function applyPaperSize(size) {
+            const width = PAGE_SIZES[size] || PAGE_SIZES.letter;
+            document.documentElement.style.setProperty('--page-width', width + 'px');
+            localStorage.setItem('paperSize', size);
+        }
+
+        function applyPageMargins(margins) {
+            const px = PAGE_MARGINS[margins] || PAGE_MARGINS.normal;
+            document.documentElement.style.setProperty('--page-margin', px + 'px');
+            localStorage.setItem('pageMargins', margins);
+        }
+
+        function insertPageBreak() {
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const text = editor.value;
+            const insert = '\n' + PAGE_BREAK_MARKER + '\n';
+            pushUndo();
+            editor.value = text.substring(0, start) + insert + text.substring(end);
+            editor.selectionStart = editor.selectionEnd = start + insert.length;
+            editor.focus();
+            saveCurrentTab();
+            updateWordCount();
+        }
+
+        function printDocument() {
+            saveCurrentTab();
+            const content = editor.value;
+            const printDiv = document.getElementById('print-content');
+            const sections = content.split(PAGE_BREAK_MARKER);
+
+            printDiv.innerHTML = '';
+            sections.forEach((section, i) => {
+                const div = document.createElement('div');
+                div.className = 'print-section' + (i > 0 ? ' print-page-break' : '');
+                div.textContent = section;
+                printDiv.appendChild(div);
+            });
+
+            window.print();
+        }
+
+        document.getElementById('page-setup-btn').addEventListener('click', openPageSetup);
+        document.getElementById('page-setup-done').addEventListener('click', closePageSetup);
+        pageSetupOverlay.addEventListener('click', (e) => {
+            if (e.target === pageSetupOverlay) closePageSetup();
+        });
+
+        pageViewToggle.addEventListener('click', () => {
+            setPageView(!body.classList.contains('page-view'));
+        });
+        paperSizeSelect.addEventListener('change', () => applyPaperSize(paperSizeSelect.value));
+        pageMarginsSelect.addEventListener('change', () => applyPageMargins(pageMarginsSelect.value));
 
         /* ══════════════════════════════════════
            Tabs
@@ -879,6 +1088,7 @@
                 case 'open-file': openFile(); break;
                 case 'font-up': changeFontSize(2); break;
                 case 'font-down': changeFontSize(-2); break;
+                case 'page-setup': openPageSetup(); break;
             }
         });
 
@@ -888,6 +1098,18 @@
         document.addEventListener('keydown', (e) => {
             const mod = e.ctrlKey || e.metaKey;
 
+            // Shift+Enter  insert page break
+            if (e.shiftKey && e.key === 'Enter' && !mod && document.activeElement === editor) {
+                e.preventDefault();
+                insertPageBreak();
+                return;
+            }
+            // Ctrl+P  print
+            if (mod && e.key === 'p') {
+                e.preventDefault();
+                printDocument();
+                return;
+            }
             // Ctrl+S  save
             if (mod && e.key === 's') {
                 e.preventDefault();
@@ -961,10 +1183,10 @@
                 doRedo();
                 return;
             }
-            // Escape closes find bar
-            if (e.key === 'Escape' && findBar.classList.contains('visible')) {
-                closeFind();
-                return;
+            // Escape closes find bar or page setup
+            if (e.key === 'Escape') {
+                if (pageSetupOverlay.style.display === 'flex') { closePageSetup(); return; }
+                if (findBar.classList.contains('visible')) { closeFind(); return; }
             }
         });
 
@@ -1033,6 +1255,13 @@
             // font size
             const savedSize = localStorage.getItem('fontSize');
             if (savedSize) document.documentElement.style.setProperty('--font-size', savedSize + 'px');
+
+            // page setup
+            if (localStorage.getItem('pageView') === 'true') setPageView(true);
+            const savedPaper = localStorage.getItem('paperSize');
+            if (savedPaper) { paperSizeSelect.value = savedPaper; applyPaperSize(savedPaper); }
+            const savedMargins = localStorage.getItem('pageMargins');
+            if (savedMargins) { pageMarginsSelect.value = savedMargins; applyPageMargins(savedMargins); }
 
             // tabs
             const saved = JSON.parse(localStorage.getItem('tabs') || '[]');
