@@ -414,8 +414,9 @@
 
         #status-right .page-setup-link {
             cursor: pointer;
-            opacity: 0.7;
+            opacity: 0.85;
             transition: opacity 0.15s;
+            padding: 2px 6px;
         }
         #status-right .page-setup-link:hover { opacity: 1; }
 
@@ -487,7 +488,7 @@
     <div id="status-bar">
         <div class="left" id="status-left"></div>
         <div class="center" id="status-center"></div>
-        <div class="right" id="status-right"><span class="page-setup-link" id="page-setup-btn">page setup</span></div>
+        <div class="right" id="status-right"><span class="page-setup-link" id="page-setup-btn">&#9634; page setup</span></div>
     </div>
 
     <button id="mode-toggle">dark</button>
@@ -525,7 +526,7 @@
                     <option value="wide">Wide</option>
                 </select>
             </div>
-            <p style="margin-top:12px; font-size:11px; opacity:0.7;">Insert page break: Shift + Enter<br>Print: Ctrl + P</p>
+            <p style="margin-top:12px; font-size:11px; opacity:0.7;">Page setup: Ctrl + Shift + P<br>Insert page break: Shift + Enter<br>Print: Ctrl + P</p>
             <div class="modal-buttons" style="margin-top: 12px;">
                 <button class="modal-button cancel-button" id="page-setup-done">Done</button>
             </div>
@@ -1104,8 +1105,14 @@
                 insertPageBreak();
                 return;
             }
+            // Ctrl+Shift+P  open page setup
+            if (mod && e.shiftKey && e.key === 'P') {
+                e.preventDefault();
+                openPageSetup();
+                return;
+            }
             // Ctrl+P  print
-            if (mod && e.key === 'p') {
+            if (mod && !e.shiftKey && e.key === 'p') {
                 e.preventDefault();
                 printDocument();
                 return;
