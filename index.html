@@ -614,21 +614,23 @@
             --base3: #fff; --base2: #fff; --base1: #000; --base0: #000;
             --base00: #000; --base01: #000; --base02: #000; --base03: #000;
             --cyan: #000; --blue: #000; --red: #000;
+            --geos-tab: #dcdcdc; --geos-desk: #a8a8a8; --geos-bar: #c8c8c8;
         }
         body.geos.dark-mode {
             --base03: #000; --base02: #000; --base01: #fff; --base00: #fff;
             --base0: #fff; --base1: #fff; --base2: #fff; --base3: #000;
             --cyan: #fff; --blue: #fff; --red: #fff;
+            --geos-tab: #2a2a2a; --geos-desk: #4a4a4a; --geos-bar: #3a3a3a;
         }
         body.geos ::selection { background: var(--base01); color: var(--base3); }
         body.geos #menubar { border-bottom: 2px solid var(--base01); }
         body.geos .tab-bar { border-bottom: 1px solid var(--base01); }
         body.geos .tab { opacity: 1; border: 1px solid var(--base01); border-bottom: none; }
-        body.geos .tab:not(.active) { background: repeating-conic-gradient(var(--base01) 0 25%, var(--base3) 0 50%) 0 0 / 2px 2px; }
-        body.geos .tab:not(.active) span { background-color: var(--base3); padding: 0 3px; }
+        body.geos .tab:not(.active) { background: var(--geos-tab); }
+        body.geos .tab:not(.active) span { padding: 0 3px; }
         body.geos #status-bar { border-top: 1px solid var(--base01); }
         body.geos .modal, body.geos .find-bar input { border: 2px solid var(--base01); }
-        body.geos .modal { box-shadow: 6px 6px 0 var(--base01); }
+        body.geos .modal { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); }
         body.geos .modal-overlay, body.geos .page-setup-overlay { background-color: transparent; }
         body.geos .modal-button, body.geos .page-setup-row select, body.geos .page-setup-row button,
         body.geos .find-bar button {
@@ -638,16 +640,17 @@
         body.geos .confirm-button, body.geos #export-confirm { background-color: var(--base3) !important; color: var(--base01) !important; border-width: 2px !important; }
         body.geos .modal-button:active { background-color: var(--base01) !important; color: var(--base3) !important; }
         body.geos .close-button:hover { background-color: var(--base01); color: var(--base3); }
-        /* the classic dithered GEOS desktop behind the page */
+        /* GEOS desktop behind the page (smooth gray instead of the 2px dither) */
         body.geos.page-view {
-            background: repeating-conic-gradient(var(--base01) 0 25%, var(--base3) 0 50%) 0 0 / 2px 2px;
+            background: var(--geos-desk);
         }
         body.geos.page-view .document-title {
             width: auto; max-width: 60%; padding: 3px 12px; margin: 10px auto 8px auto;
             background-color: var(--base3); border: 1px solid var(--base01); text-align: center;
         }
-        body.geos.page-view #editor { box-shadow: 4px 4px 0 var(--base01); border-left: 1px solid var(--base01); border-right: 1px solid var(--base01); }
-        body.geos #notepad, body.geos .menu-items { box-shadow: 4px 4px 0 var(--base01); }
+        body.geos.page-view #editor { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25); border-left: 1px solid var(--base01); border-right: 1px solid var(--base01); }
+        body.geos #notepad, body.geos .menu-items { box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); }
+        body.geos .da-titlebar { background: var(--geos-bar); }
 
         @media (max-width: 768px) {
             #menubar { display: none !important; }
