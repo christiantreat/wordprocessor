@@ -412,6 +412,18 @@
             border-color: var(--cyan);
         }
 
+        .page-setup-row input.export-input {
+            font-family: inherit;
+            font-size: 12px;
+            padding: 4px 8px;
+            border: 1px solid var(--base01);
+            outline: none;
+            width: 60%;
+        }
+        .light-mode .page-setup-row input.export-input { background-color: var(--base3); color: var(--base00); }
+        .dark-mode .page-setup-row input.export-input { background-color: var(--base03); color: var(--base0); }
+        #export-confirm { color: var(--base3); }
+
         #status-right .page-setup-link {
             cursor: pointer;
             opacity: 0.85;
@@ -424,11 +436,17 @@
         .print-content { display: none; }
 
         @media print {
+            #menubar, #notepad,
             .tab-bar, .toolbar, #status-bar, #mode-toggle, .find-bar,
             .modal-overlay, .page-setup-overlay, .toast, .drop-zone,
             .document-title, #editor { display: none !important; }
 
-            body { background: white !important; }
+            body {
+                background: white !important;
+                display: block;
+                height: auto;
+                overflow: visible;
+            }
 
             .print-content {
                 display: block !important;
@@ -448,6 +466,196 @@
             }
         }
 
+        /* ── Menu Bar (GEOS-style pull-downs + clock) ── */
+        #menubar {
+            display: flex;
+            align-items: stretch;
+            font-size: 12px;
+            flex-shrink: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            position: relative;
+            z-index: 500;
+        }
+        body.no-menubar #menubar { display: none; }
+        body:not(.no-menubar) #mode-toggle { display: none; }
+        .light-mode #menubar { background-color: var(--base2); color: var(--base00); border-bottom: 1px solid var(--base1); }
+        .dark-mode #menubar { background-color: var(--base02); color: var(--base0); border-bottom: 1px solid var(--base01); }
+
+        .menu { position: relative; }
+        .menu-title { padding: 3px 10px; cursor: default; display: block; }
+        .menu.open .menu-title { background-color: var(--base01); color: var(--base3); }
+        .menu-items {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            min-width: 210px;
+            padding: 2px 0;
+            border: 1px solid var(--base01);
+            box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.25);
+        }
+        .menu.open .menu-items { display: block; }
+        .light-mode .menu-items { background-color: var(--base3); }
+        .dark-mode .menu-items { background-color: var(--base03); }
+        .menu-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 3px 12px;
+            cursor: default;
+            white-space: nowrap;
+        }
+        .menu-item:hover { background-color: var(--base01); color: var(--base3); }
+        .menu-item .key { opacity: 0.6; }
+        .menu-sep { border-top: 1px dotted var(--base01); margin: 2px 0; }
+        #menu-clock { margin-left: auto; padding: 3px 12px; }
+        #menu-docname { padding: 3px 10px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* ── Note Pad (desk accessory) ── */
+        #notepad {
+            position: fixed;
+            top: 80px;
+            right: 40px;
+            width: 280px;
+            z-index: 900;
+            display: none;
+            flex-direction: column;
+            border: 1px solid var(--base01);
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.25);
+        }
+        #notepad.visible { display: flex; }
+        .light-mode #notepad { background-color: var(--base3); color: var(--base00); }
+        .dark-mode #notepad { background-color: var(--base03); color: var(--base0); }
+        .da-titlebar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            padding: 2px 6px;
+            cursor: move;
+            user-select: none;
+            -webkit-user-select: none;
+            background: repeating-linear-gradient(to bottom, var(--base01) 0 1px, transparent 1px 3px);
+        }
+        .da-titlebar span { padding: 0 6px; }
+        .light-mode .da-titlebar span { background-color: var(--base3); }
+        .dark-mode .da-titlebar span { background-color: var(--base03); }
+        .da-titlebar button {
+            font-family: inherit; font-size: 11px; border: 1px solid var(--base01);
+            color: inherit; cursor: pointer; padding: 0 5px;
+        }
+        .light-mode .da-titlebar button { background-color: var(--base3); }
+        .dark-mode .da-titlebar button { background-color: var(--base03); }
+        #notepad-text {
+            font-family: inherit;
+            font-size: 13px;
+            line-height: 1.5;
+            height: 220px;
+            border: none;
+            border-top: 1px solid var(--base01);
+            outline: none;
+            resize: none;
+            padding: 8px;
+            background: transparent;
+            color: inherit;
+        }
+        .notepad-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            border-top: 1px solid var(--base01);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .notepad-foot button {
+            font-family: inherit; font-size: 11px; border: none; background: transparent;
+            color: inherit; cursor: pointer; padding: 3px 8px;
+        }
+        /* dog-eared corner flips to the next page, like the GEOS Note Pad */
+        .notepad-foot .dogear {
+            width: 18px; height: 18px; padding: 0;
+            background: linear-gradient(135deg, transparent 50%, var(--base01) 50%);
+        }
+
+        /* ── Text Album ── */
+        .album-list {
+            max-height: 320px;
+            overflow-y: auto;
+            margin: 8px 0 12px 0;
+            border: 1px solid var(--base01);
+        }
+        .album-entry {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 6px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            border-bottom: 1px dotted var(--base01);
+        }
+        .album-entry:last-child { border-bottom: none; }
+        .album-entry:hover { background-color: var(--base01); color: var(--base3); }
+        .album-entry .album-text {
+            flex: 1;
+            white-space: pre-wrap;
+            overflow: hidden;
+            max-height: 3.2em;
+        }
+        .album-entry .album-del { opacity: 0.6; padding: 0 4px; }
+        .album-entry .album-del:hover { opacity: 1; }
+        .album-empty { padding: 12px; font-size: 12px; opacity: 0.6; }
+        .modal.wide { max-width: 460px; }
+        .about-keys { font-size: 12px; line-height: 1.7; columns: 2; column-gap: 24px; }
+
+        /* ── GEOS 1-bit theme ── */
+        body.geos.light-mode {
+            --base3: #fff; --base2: #fff; --base1: #000; --base0: #000;
+            --base00: #000; --base01: #000; --base02: #000; --base03: #000;
+            --cyan: #000; --blue: #000; --red: #000;
+        }
+        body.geos.dark-mode {
+            --base03: #000; --base02: #000; --base01: #fff; --base00: #fff;
+            --base0: #fff; --base1: #fff; --base2: #fff; --base3: #000;
+            --cyan: #fff; --blue: #fff; --red: #fff;
+        }
+        body.geos { -webkit-font-smoothing: none; }
+        body.geos ::selection { background: var(--base01); color: var(--base3); }
+        body.geos #menubar { border-bottom: 2px solid var(--base01); }
+        body.geos .tab-bar { border-bottom: 1px solid var(--base01); }
+        body.geos .tab { opacity: 1; border: 1px solid var(--base01); border-bottom: none; }
+        body.geos .tab:not(.active) { background: repeating-conic-gradient(var(--base01) 0 25%, var(--base3) 0 50%) 0 0 / 2px 2px; }
+        body.geos .tab:not(.active) span { background-color: var(--base3); padding: 0 3px; }
+        body.geos #status-bar { border-top: 1px solid var(--base01); }
+        body.geos .modal, body.geos .find-bar input { border: 2px solid var(--base01); }
+        body.geos .modal { box-shadow: 6px 6px 0 var(--base01); }
+        body.geos .modal-overlay, body.geos .page-setup-overlay { background-color: transparent; }
+        body.geos .modal-button, body.geos .page-setup-row select, body.geos .page-setup-row button,
+        body.geos .find-bar button {
+            border: 1px solid var(--base01) !important;
+            border-radius: 6px;
+        }
+        body.geos .confirm-button, body.geos #export-confirm { background-color: var(--base3) !important; color: var(--base01) !important; border-width: 2px !important; }
+        body.geos .modal-button:active { background-color: var(--base01) !important; color: var(--base3) !important; }
+        body.geos .close-button:hover { background-color: var(--base01); color: var(--base3); }
+        /* the classic dithered GEOS desktop behind the page */
+        body.geos.page-view {
+            background: repeating-conic-gradient(var(--base01) 0 25%, var(--base3) 0 50%) 0 0 / 2px 2px;
+        }
+        body.geos.page-view .document-title {
+            width: auto; max-width: 60%; padding: 3px 12px; margin: 10px auto 8px auto;
+            background-color: var(--base3); border: 1px solid var(--base01); text-align: center;
+        }
+        body.geos.page-view #editor { box-shadow: 4px 4px 0 var(--base01); border-left: 1px solid var(--base01); border-right: 1px solid var(--base01); }
+        body.geos #notepad, body.geos .menu-items { box-shadow: 4px 4px 0 var(--base01); }
+
+        @media (max-width: 768px) {
+            #menubar { display: none !important; }
+            #mode-toggle { display: block !important; }
+            #notepad { right: 8px; left: 8px; width: auto; top: 60px; }
+        }
+
         @media (max-width: 768px) {
             body.page-view #editor {
                 max-width: 100%;
@@ -459,6 +667,63 @@
     </style>
 </head>
 <body class="light-mode">
+
+    <div id="menubar">
+        <div class="menu"><span class="menu-title">&#10070; writer</span>
+            <div class="menu-items">
+                <div class="menu-item" data-cmd="about">About Writer&hellip;</div>
+                <div class="menu-sep"></div>
+                <div class="menu-item" data-cmd="notepad"><span>Note Pad</span><span class="key">&#8679;&#8984;N</span></div>
+                <div class="menu-item" data-cmd="album"><span>Text Album</span><span class="key">&#8679;&#8984;A</span></div>
+            </div>
+        </div>
+        <div class="menu"><span class="menu-title">file</span>
+            <div class="menu-items">
+                <div class="menu-item" data-cmd="new"><span>New</span><span class="key">&#8984;N</span></div>
+                <div class="menu-item" data-cmd="open"><span>Open&hellip;</span><span class="key">&#8984;O</span></div>
+                <div class="menu-sep"></div>
+                <div class="menu-item" data-cmd="save"><span>Save</span><span class="key">&#8984;S</span></div>
+                <div class="menu-item" data-cmd="save-as"><span>Save As&hellip;</span><span class="key">&#8679;&#8984;S</span></div>
+                <div class="menu-item" data-cmd="print"><span>Print&hellip;</span><span class="key">&#8984;P</span></div>
+                <div class="menu-sep"></div>
+                <div class="menu-item" data-cmd="close"><span>Close</span><span class="key">&#8984;W</span></div>
+            </div>
+        </div>
+        <div class="menu"><span class="menu-title">edit</span>
+            <div class="menu-items">
+                <div class="menu-item" data-cmd="undo"><span>Undo</span><span class="key">&#8984;Z</span></div>
+                <div class="menu-item" data-cmd="redo"><span>Redo</span><span class="key">&#8679;&#8984;Z</span></div>
+                <div class="menu-sep"></div>
+                <div class="menu-item" data-cmd="find"><span>Find &amp; Replace</span><span class="key">&#8984;F</span></div>
+                <div class="menu-sep"></div>
+                <div class="menu-item" data-cmd="scrap"><span>Selection to Album</span><span class="key">&#8679;&#8984;C</span></div>
+                <div class="menu-item" data-cmd="album"><span>Paste from Album&hellip;</span><span class="key">&#8679;&#8984;A</span></div>
+            </div>
+        </div>
+        <div class="menu"><span class="menu-title">page</span>
+            <div class="menu-items">
+                <div class="menu-item" data-cmd="page-break"><span>Insert Page Break</span><span class="key">&#8679;&#8629;</span></div>
+                <div class="menu-item" data-cmd="prev-page"><span>Previous Page</span><span class="key">&#8997;&#8984;&#8593;</span></div>
+                <div class="menu-item" data-cmd="next-page"><span>Next Page</span><span class="key">&#8997;&#8984;&#8595;</span></div>
+                <div class="menu-sep"></div>
+                <div class="menu-item" data-cmd="page-view"><span>Toggle Page View</span><span class="key">&#8679;&#8984;V</span></div>
+                <div class="menu-item" data-cmd="page-setup"><span>Page Setup&hellip;</span><span class="key">&#8679;&#8984;P</span></div>
+            </div>
+        </div>
+        <div class="menu"><span class="menu-title">options</span>
+            <div class="menu-items">
+                <div class="menu-item" data-cmd="geos"><span>GEOS 1-bit Theme</span><span class="key" id="geos-check"></span></div>
+                <div class="menu-item" data-cmd="dark"><span>Dark / Light</span></div>
+                <div class="menu-sep"></div>
+                <div class="menu-item" data-cmd="font-up"><span>Larger Text</span><span class="key">&#8984;+</span></div>
+                <div class="menu-item" data-cmd="font-down"><span>Smaller Text</span><span class="key">&#8984;&minus;</span></div>
+                <div class="menu-sep"></div>
+                <div class="menu-item" data-cmd="hide-menubar"><span>Hide Menu Bar</span><span class="key">&#8679;&#8984;M</span></div>
+            </div>
+        </div>
+        <span id="menu-docname"></span>
+        <span id="menu-clock"></span>
+    </div>
 
     <div class="tab-bar"></div>
     <input type="text" class="document-title" placeholder="untitled document">
@@ -478,7 +743,7 @@
 
     <div class="toolbar">
         <button data-action="find">Find</button>
-        <button data-action="save-file">Export</button>
+        <button data-action="save-file">Save As</button>
         <button data-action="open-file">Open</button>
         <button data-action="font-up">A+</button>
         <button data-action="font-down">A-</button>
@@ -488,7 +753,7 @@
     <div id="status-bar">
         <div class="left" id="status-left"></div>
         <div class="center" id="status-center"></div>
-        <div class="right" id="status-right"><span class="page-setup-link" id="page-setup-btn">&#9634; page setup</span></div>
+        <div class="right" id="status-right"><span class="page-setup-link" id="view-toggle-btn">view: wide</span><span class="page-setup-link" id="page-setup-btn">&#9634; page setup</span></div>
     </div>
 
     <button id="mode-toggle">dark</button>
@@ -526,10 +791,72 @@
                     <option value="wide">Wide</option>
                 </select>
             </div>
-            <p style="margin-top:12px; font-size:11px; opacity:0.7;">Page setup: Ctrl + Shift + P<br>Insert page break: Shift + Enter<br>Print: Ctrl + P</p>
+            <p style="margin-top:12px; font-size:11px; opacity:0.7;">Page setup: &#8984; + Shift + P<br>Toggle page view: &#8984; + Shift + V<br>Insert page break: Shift + Enter<br>Save As: &#8984; + Shift + S<br>Print: &#8984; + P</p>
             <div class="modal-buttons" style="margin-top: 12px;">
                 <button class="modal-button cancel-button" id="page-setup-done">Done</button>
             </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="export-overlay">
+        <div class="modal">
+            <h3>Save As</h3>
+            <div class="page-setup-row">
+                <span>Filename</span>
+                <input type="text" id="export-filename" class="export-input">
+            </div>
+            <div class="page-setup-row">
+                <span>Format</span>
+                <select id="export-format">
+                    <option value="md">.md (Markdown)</option>
+                    <option value="txt">.txt (Plain Text)</option>
+                    <option value="docx">.docx (Word)</option>
+                </select>
+            </div>
+            <div class="modal-buttons" style="margin-top: 12px;">
+                <button class="modal-button cancel-button" id="export-cancel">Cancel</button>
+                <button class="modal-button confirm-button" id="export-confirm" style="background-color:var(--blue);">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="album-overlay">
+        <div class="modal wide">
+            <h3>Text Album</h3>
+            <p style="font-size:11px; opacity:0.7; margin-bottom:0;">Click a scrap to paste it at the cursor. &#8679;&#8984;C saves the current selection.</p>
+            <div class="album-list" id="album-list"></div>
+            <div class="modal-buttons">
+                <button class="modal-button cancel-button" id="album-add">Add Selection</button>
+                <button class="modal-button cancel-button" id="album-done">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="about-overlay">
+        <div class="modal wide">
+            <h3>&#10070; Writer</h3>
+            <p style="font-size:12px;">A plain-text word processor. Menu bar, Note Pad and Text Album inspired by GEOWrite for the Commodore 64 (Berkeley Softworks, 1986).</p>
+            <div class="about-keys">
+                &#8984;N new tab<br>&#8984;O open<br>&#8984;S save<br>&#8679;&#8984;S save as<br>&#8984;P print<br>&#8984;W close tab<br>&#8984;F find / replace<br>&#8984;+ / &#8984;&minus; text size<br>
+                &#8679;&#8629; page break<br>&#8997;&#8984;&#8593;&#8595; prev / next page<br>&#8679;&#8984;V page view<br>&#8679;&#8984;P page setup<br>&#8679;&#8984;N note pad<br>&#8679;&#8984;C selection to album<br>&#8679;&#8984;A text album<br>&#8679;&#8984;M menu bar
+            </div>
+            <div class="modal-buttons" style="margin-top: 12px;">
+                <button class="modal-button cancel-button" id="about-done">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notepad">
+        <div class="da-titlebar" id="notepad-titlebar">
+            <button id="notepad-close" title="Close">&times;</button>
+            <span>Note Pad</span>
+            <button id="notepad-new" title="Add page">+</button>
+        </div>
+        <textarea id="notepad-text" placeholder="Jot something down..."></textarea>
+        <div class="notepad-foot">
+            <button id="notepad-prev" title="Previous page">&#9664;</button>
+            <span id="notepad-page"></span>
+            <button class="dogear" id="notepad-next" title="Next page"></button>
         </div>
     </div>
 
@@ -537,7 +864,7 @@
     <div class="drop-zone" id="drop-zone">Drop file to open</div>
     <div class="print-content" id="print-content"></div>
 
-    <input type="file" id="file-input" accept=".txt,.md,.text,.log,.csv,.json,.js,.html,.css,.py,.xml,.yaml,.yml,.ini,.cfg,.sh,.bat" style="display:none">
+    <input type="file" id="file-input" accept=".txt,.md,.text,.log,.csv,.json,.js,.html,.css,.py,.xml,.yaml,.yml,.ini,.cfg,.sh,.bat,.docx" style="display:none">
 
     <script>
         /* ══════════════════════════════════════
@@ -615,6 +942,7 @@
         ══════════════════════════════════════ */
         const pageSetupOverlay = document.getElementById('page-setup-overlay');
         const pageViewToggle = document.getElementById('page-view-toggle');
+        const viewToggleBtn = document.getElementById('view-toggle-btn');
         const paperSizeSelect = document.getElementById('paper-size');
         const pageMarginsSelect = document.getElementById('page-margins');
 
@@ -631,7 +959,12 @@
             body.classList.toggle('page-view', on);
             pageViewToggle.textContent = on ? 'on' : 'off';
             pageViewToggle.classList.toggle('active', on);
+            viewToggleBtn.textContent = on ? 'view: page' : 'view: wide';
             localStorage.setItem('pageView', on);
+        }
+
+        function togglePageView() {
+            setPageView(!body.classList.contains('page-view'));
         }
 
         function applyPaperSize(size) {
@@ -673,7 +1006,17 @@
                 printDiv.appendChild(div);
             });
 
-            window.print();
+            // Convert margin setting to points (1 inch = 72pt)
+            const marginPt = { normal: 72, narrow: 36, wide: 90 };
+            const m = marginPt[pageMarginsSelect.value] || 72;
+            const margins = { top: m, bottom: m, left: m, right: m };
+
+            // Use native macOS print if available (WKWebView), else fallback
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.print) {
+                window.webkit.messageHandlers.print.postMessage(margins);
+            } else {
+                window.print();
+            }
         }
 
         document.getElementById('page-setup-btn').addEventListener('click', openPageSetup);
@@ -682,9 +1025,8 @@
             if (e.target === pageSetupOverlay) closePageSetup();
         });
 
-        pageViewToggle.addEventListener('click', () => {
-            setPageView(!body.classList.contains('page-view'));
-        });
+        pageViewToggle.addEventListener('click', togglePageView);
+        viewToggleBtn.addEventListener('click', togglePageView);
         paperSizeSelect.addEventListener('change', () => applyPaperSize(paperSizeSelect.value));
         pageMarginsSelect.addEventListener('change', () => applyPageMargins(pageMarginsSelect.value));
 
@@ -1015,22 +1357,102 @@
         /* ══════════════════════════════════════
            File Export / Import
         ══════════════════════════════════════ */
+        const exportOverlay = document.getElementById('export-overlay');
+        const exportFilenameInput = document.getElementById('export-filename');
+        const exportFormatSelect = document.getElementById('export-format');
+
+        // returns the native (macOS app wrapper) message handler, or null in a plain browser
+        function nativeHandler(name) {
+            return (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[name]) || null;
+        }
+
+        function fileDataFor(tab, ext) {
+            if (ext === 'docx') {
+                return { base64: bytesToBase64(makeDocx(tab.content, paperSizeSelect.value, pageMarginsSelect.value)) };
+            }
+            return { text: tab.content };
+        }
+
         function exportFile() {
             saveCurrentTab();
             const tab = tabs.find(t => t.id === activeTabId);
             if (!tab) return;
-            const name = (tab.title || 'untitled') + '.md';
-            const blob = new Blob([tab.content], { type: 'text/plain;charset=utf-8' });
+            exportFilenameInput.value = tab.title || 'untitled';
+            if (tab.fsPath && /\.docx$/i.test(tab.fsPath)) exportFormatSelect.value = 'docx';
+            else exportFormatSelect.value = localStorage.getItem('exportFormat') || 'md';
+            exportOverlay.style.display = 'flex';
+            setTimeout(() => { exportFilenameInput.focus(); exportFilenameInput.select(); }, 0);
+        }
+
+        function doExport() {
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (!tab) return;
+            const ext = exportFormatSelect.value;
+            const base = (exportFilenameInput.value || 'untitled').replace(/\.[^.]+$/, '').trim() || 'untitled';
+            const name = base + '.' + ext;
+            localStorage.setItem('exportFormat', ext);
+            exportOverlay.style.display = 'none';
+
+            const native = nativeHandler('saveFile');
+            if (native) {
+                // native save panel; wrapper calls savedAs() + showToast() when done
+                const msg = Object.assign({ name: name, tabId: tab.id }, fileDataFor(tab, ext));
+                native.postMessage(msg);
+                return;
+            }
+
+            const mime = ext === 'docx'
+                ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                : 'text/plain;charset=utf-8';
+            const payload = ext === 'docx'
+                ? makeDocx(tab.content, paperSizeSelect.value, pageMarginsSelect.value)
+                : tab.content;
+            const blob = new Blob([payload], { type: mime });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = name;
             a.click();
             URL.revokeObjectURL(url);
-            showToast('Exported ' + name);
+            showToast('Downloaded ' + name);
         }
 
+        // Cmd+S: write back to the opened file when we know its path (app only),
+        // otherwise just confirm the localStorage autosave.
+        function saveDocument() {
+            saveCurrentTab();
+            const tab = tabs.find(t => t.id === activeTabId);
+            const native = nativeHandler('saveFile');
+            if (tab && tab.fsPath && native) {
+                const ext = /\.docx$/i.test(tab.fsPath) ? 'docx' : 'txt';
+                const msg = Object.assign(
+                    { name: tab.fsPath.split('/').pop(), path: tab.fsPath },
+                    fileDataFor(tab, ext)
+                );
+                native.postMessage(msg);
+            } else {
+                showToast('Saved');
+            }
+        }
+
+        // called by the wrapper after a successful Save As
+        function savedAs(tabId, path) {
+            const tab = tabs.find(t => t.id === tabId);
+            if (tab) { tab.fsPath = path; saveTabs(); }
+        }
+
+        document.getElementById('export-confirm').addEventListener('click', doExport);
+        document.getElementById('export-cancel').addEventListener('click', () => exportOverlay.style.display = 'none');
+        exportOverlay.addEventListener('click', (e) => { if (e.target === exportOverlay) exportOverlay.style.display = 'none'; });
+        exportFilenameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); doExport(); }
+            if (e.key === 'Escape') exportOverlay.style.display = 'none';
+        });
+
         function openFile() {
+            // native open panel remembers the file's path so Cmd+S can save back to it
+            const native = nativeHandler('openFile');
+            if (native) { native.postMessage({}); return; }
             fileInput.click();
         }
 
@@ -1041,14 +1463,402 @@
             fileInput.value = '';
         });
 
-        function readFileIntoTab(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const name = file.name.replace(/\.[^.]+$/, '');
-                createNewTab(name, e.target.result);
+        async function readFileIntoTab(file) {
+            const name = file.name.replace(/\.[^.]+$/, '');
+            try {
+                let content;
+                if (/\.docx$/i.test(file.name)) {
+                    content = await readDocx(file);
+                } else {
+                    content = await file.text();
+                }
+                createNewTab(name, content);
                 showToast('Opened ' + file.name);
-            };
-            reader.readAsText(file);
+            } catch (err) {
+                showToast('Could not open: ' + (err.message || 'unknown error'));
+            }
+        }
+
+        /* ── .docx reader (offline; no dependencies) ──
+           Parses the ZIP container, inflates word/document.xml with the
+           browser's built-in DecompressionStream, and extracts paragraph
+           text from <w:t> runs. */
+        async function readDocx(file) {
+            return readDocxBuffer(await file.arrayBuffer());
+        }
+
+        async function readDocxBuffer(buf) {
+            const view = new DataView(buf);
+            const bytes = new Uint8Array(buf);
+
+            // locate End-of-Central-Directory record (signature 0x06054b50), search from end
+            let eocd = -1;
+            const minStart = Math.max(0, bytes.length - 65557);
+            for (let i = bytes.length - 22; i >= minStart; i--) {
+                if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+            }
+            if (eocd === -1) throw new Error('Not a valid .docx file');
+
+            const cdEntries = view.getUint16(eocd + 10, true);
+            const cdOffset = view.getUint32(eocd + 16, true);
+            const decoder = new TextDecoder();
+
+            let off = cdOffset;
+            for (let i = 0; i < cdEntries; i++) {
+                if (view.getUint32(off, true) !== 0x02014b50) throw new Error('Corrupt central directory');
+                const compMethod = view.getUint16(off + 10, true);
+                const compSize = view.getUint32(off + 20, true);
+                const nameLen = view.getUint16(off + 28, true);
+                const extraLen = view.getUint16(off + 30, true);
+                const commentLen = view.getUint16(off + 32, true);
+                const localOff = view.getUint32(off + 42, true);
+                const name = decoder.decode(bytes.subarray(off + 46, off + 46 + nameLen));
+
+                if (name === 'word/document.xml') {
+                    const localNameLen = view.getUint16(localOff + 26, true);
+                    const localExtraLen = view.getUint16(localOff + 28, true);
+                    const dataStart = localOff + 30 + localNameLen + localExtraLen;
+                    const compData = bytes.subarray(dataStart, dataStart + compSize);
+
+                    let xmlBytes;
+                    if (compMethod === 0) {
+                        xmlBytes = compData;
+                    } else if (compMethod === 8) {
+                        // DecompressionStream is missing from this machine's WKWebView,
+                        // so always use the bundled inflater
+                        xmlBytes = inflateRaw(compData);
+                    } else {
+                        throw new Error('Unsupported compression in .docx');
+                    }
+                    return extractDocxText(decoder.decode(xmlBytes));
+                }
+                off += 46 + nameLen + extraLen + commentLen;
+            }
+            throw new Error('No word/document.xml in archive');
+        }
+
+        function extractDocxText(xml) {
+            const decodeEntities = (s) => s
+                .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+                .replace(/&amp;/g, '&');
+            // also match self-closing <w:p/> so empty paragraphs keep their blank line
+            const paragraphs = xml.match(/<w:p\b[^>]*\/>|<w:p[\s>][\s\S]*?<\/w:p>/g) || [];
+            return paragraphs.map(p => {
+                let line = '';
+                // <w:t(?:\s...)?> so the text pattern can't swallow <w:tab/>
+                const tokens = p.match(/<w:tab[^>]*\/?>|<w:br[^>]*\/?>|<w:t(?:\s[^>]*)?>[\s\S]*?<\/w:t>/g) || [];
+                for (const tok of tokens) {
+                    if (tok.startsWith('<w:tab')) line += '\t';
+                    else if (tok.startsWith('<w:br')) line += tok.includes('w:type="page"') ? '\n' + PAGE_BREAK_MARKER + '\n' : '\n';
+                    else {
+                        const m = tok.match(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/);
+                        if (m) line += decodeEntities(m[1]);
+                    }
+                }
+                return line;
+            }).join('\n');
+        }
+
+        /* ── raw DEFLATE inflater (RFC 1951) ──
+           Needed because this Mac's WKWebView has no DecompressionStream.
+           Port of the tiny-inflate (tinf) algorithm. */
+        function inflateRaw(src) {
+            let srcPos = 0, bitBuf = 0, bitCnt = 0;
+            let out = new Uint8Array(Math.max(1024, src.length * 4));
+            let outPos = 0;
+
+            function ensure(extra) {
+                if (outPos + extra <= out.length) return;
+                let size = out.length * 2;
+                while (size < outPos + extra) size *= 2;
+                const bigger = new Uint8Array(size);
+                bigger.set(out);
+                out = bigger;
+            }
+
+            function getBit() {
+                if (bitCnt === 0) {
+                    if (srcPos >= src.length) throw new Error('Unexpected end of compressed data');
+                    bitBuf = src[srcPos++];
+                    bitCnt = 8;
+                }
+                const bit = bitBuf & 1;
+                bitBuf >>>= 1;
+                bitCnt--;
+                return bit;
+            }
+
+            function getBits(n) {
+                let value = 0;
+                for (let i = 0; i < n; i++) value |= getBit() << i;
+                return value;
+            }
+
+            function buildTree(lengths) {
+                const counts = new Uint16Array(16);
+                for (const len of lengths) counts[len]++;
+                counts[0] = 0;
+                const offsets = new Uint16Array(16);
+                for (let i = 1; i < 16; i++) offsets[i] = offsets[i - 1] + counts[i - 1];
+                const symbols = new Uint16Array(lengths.length);
+                lengths.forEach((len, sym) => { if (len) symbols[offsets[len]++] = sym; });
+                return { counts, symbols };
+            }
+
+            function decodeSymbol(tree) {
+                let base = 0, offs = 0;
+                for (let len = 1; ; len++) {
+                    offs = 2 * offs + getBit();
+                    if (offs < tree.counts[len]) return tree.symbols[base + offs];
+                    base += tree.counts[len];
+                    offs -= tree.counts[len];
+                }
+            }
+
+            const LENGTH_BITS = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0];
+            const LENGTH_BASE = [3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258];
+            const DIST_BITS = [0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13];
+            const DIST_BASE = [1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577];
+            const CLEN_ORDER = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15];
+
+            const fixedLit = buildTree(Array.from({ length: 288 }, (_, i) =>
+                i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8));
+            const fixedDist = buildTree(new Array(30).fill(5));
+
+            while (true) {
+                const bfinal = getBit();
+                const btype = getBits(2);
+
+                if (btype === 0) {
+                    // stored block: skip to byte boundary
+                    bitBuf = 0; bitCnt = 0;
+                    const len = src[srcPos] | (src[srcPos + 1] << 8);
+                    srcPos += 4; // len + one's complement
+                    ensure(len);
+                    out.set(src.subarray(srcPos, srcPos + len), outPos);
+                    srcPos += len;
+                    outPos += len;
+                } else {
+                    let litTree, distTree;
+                    if (btype === 1) {
+                        litTree = fixedLit;
+                        distTree = fixedDist;
+                    } else if (btype === 2) {
+                        const hlit = getBits(5) + 257;
+                        const hdist = getBits(5) + 1;
+                        const hclen = getBits(4) + 4;
+                        const clenLengths = new Array(19).fill(0);
+                        for (let i = 0; i < hclen; i++) clenLengths[CLEN_ORDER[i]] = getBits(3);
+                        const clenTree = buildTree(clenLengths);
+                        const lengths = [];
+                        while (lengths.length < hlit + hdist) {
+                            const sym = decodeSymbol(clenTree);
+                            if (sym < 16) lengths.push(sym);
+                            else if (sym === 16) {
+                                const prev = lengths[lengths.length - 1];
+                                for (let n = getBits(2) + 3; n > 0; n--) lengths.push(prev);
+                            } else if (sym === 17) {
+                                for (let n = getBits(3) + 3; n > 0; n--) lengths.push(0);
+                            } else {
+                                for (let n = getBits(7) + 11; n > 0; n--) lengths.push(0);
+                            }
+                        }
+                        litTree = buildTree(lengths.slice(0, hlit));
+                        distTree = buildTree(lengths.slice(hlit));
+                    } else {
+                        throw new Error('Invalid deflate block');
+                    }
+
+                    while (true) {
+                        const sym = decodeSymbol(litTree);
+                        if (sym === 256) break;
+                        if (sym < 256) {
+                            ensure(1);
+                            out[outPos++] = sym;
+                        } else {
+                            const length = LENGTH_BASE[sym - 257] + getBits(LENGTH_BITS[sym - 257]);
+                            const distSym = decodeSymbol(distTree);
+                            const distance = DIST_BASE[distSym] + getBits(DIST_BITS[distSym]);
+                            ensure(length);
+                            for (let i = 0; i < length; i++) {
+                                out[outPos] = out[outPos - distance];
+                                outPos++;
+                            }
+                        }
+                    }
+                }
+                if (bfinal) break;
+            }
+            return out.subarray(0, outPos);
+        }
+
+        /* ── docx writer start ──
+           Builds a minimal OOXML package as an uncompressed ZIP
+           (stored entries + CRC-32), so no compression library is needed. */
+        const CRC32_TABLE = (() => {
+            const t = new Uint32Array(256);
+            for (let n = 0; n < 256; n++) {
+                let c = n;
+                for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                t[n] = c;
+            }
+            return t;
+        })();
+
+        function crc32(bytes) {
+            let c = 0xFFFFFFFF;
+            for (let i = 0; i < bytes.length; i++) c = CRC32_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+            return (c ^ 0xFFFFFFFF) >>> 0;
+        }
+
+        function buildZip(entries) {
+            const encoder = new TextEncoder();
+            const dosDate = ((2026 - 1980) << 9) | (1 << 5) | 1;
+            const chunks = [];
+            const central = [];
+            let offset = 0;
+
+            for (const entry of entries) {
+                const nameBytes = encoder.encode(entry.name);
+                const data = entry.data;
+                const crc = crc32(data);
+
+                const local = new Uint8Array(30 + nameBytes.length);
+                const lv = new DataView(local.buffer);
+                lv.setUint32(0, 0x04034b50, true);
+                lv.setUint16(4, 20, true);
+                lv.setUint16(12, dosDate, true);
+                lv.setUint32(14, crc, true);
+                lv.setUint32(18, data.length, true);
+                lv.setUint32(22, data.length, true);
+                lv.setUint16(26, nameBytes.length, true);
+                local.set(nameBytes, 30);
+                chunks.push(local, data);
+
+                const cd = new Uint8Array(46 + nameBytes.length);
+                const cv = new DataView(cd.buffer);
+                cv.setUint32(0, 0x02014b50, true);
+                cv.setUint16(4, 20, true);
+                cv.setUint16(6, 20, true);
+                cv.setUint16(14, dosDate, true);
+                cv.setUint32(16, crc, true);
+                cv.setUint32(20, data.length, true);
+                cv.setUint32(24, data.length, true);
+                cv.setUint16(28, nameBytes.length, true);
+                cv.setUint32(42, offset, true);
+                cd.set(nameBytes, 46);
+                central.push(cd);
+
+                offset += local.length + data.length;
+            }
+
+            let centralSize = 0;
+            central.forEach(c => { centralSize += c.length; });
+            const eocd = new Uint8Array(22);
+            const ev = new DataView(eocd.buffer);
+            ev.setUint32(0, 0x06054b50, true);
+            ev.setUint16(8, entries.length, true);
+            ev.setUint16(10, entries.length, true);
+            ev.setUint32(12, centralSize, true);
+            ev.setUint32(16, offset, true);
+
+            const out = new Uint8Array(offset + centralSize + 22);
+            let pos = 0;
+            for (const part of chunks.concat(central, [eocd])) {
+                out.set(part, pos);
+                pos += part.length;
+            }
+            return out;
+        }
+
+        function escapeXml(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function makeDocx(text, paperSize, marginName) {
+            const PAGE_TWIPS = { letter: { w: 12240, h: 15840 }, a4: { w: 11906, h: 16838 } };
+            const MARGIN_TWIPS = { normal: 1440, narrow: 720, wide: 1800 };
+            const page = PAGE_TWIPS[paperSize] || PAGE_TWIPS.letter;
+            const margin = MARGIN_TWIPS[marginName] || MARGIN_TWIPS.normal;
+
+            const clean = text.replace(/\r\n?/g, '\n').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+            const bodyXml = clean.split('\n').map(line => {
+                if (line === PAGE_BREAK_MARKER) return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+                if (!line) return '<w:p/>';
+                let runs = '';
+                line.split('\t').forEach((part, i) => {
+                    if (i > 0) runs += '<w:r><w:tab/></w:r>';
+                    if (part) runs += '<w:r><w:t xml:space="preserve">' + escapeXml(part) + '</w:t></w:r>';
+                });
+                return '<w:p>' + runs + '</w:p>';
+            }).join('');
+
+            const documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+                '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+                bodyXml +
+                '<w:sectPr><w:pgSz w:w="' + page.w + '" w:h="' + page.h + '"/>' +
+                '<w:pgMar w:top="' + margin + '" w:right="' + margin + '" w:bottom="' + margin +
+                '" w:left="' + margin + '" w:header="720" w:footer="720" w:gutter="0"/>' +
+                '</w:sectPr></w:body></w:document>';
+
+            const contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+                '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+                '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+                '<Default Extension="xml" ContentType="application/xml"/>' +
+                '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+                '</Types>';
+
+            const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+                '</Relationships>';
+
+            const encoder = new TextEncoder();
+            return buildZip([
+                { name: '[Content_Types].xml', data: encoder.encode(contentTypes) },
+                { name: '_rels/.rels', data: encoder.encode(rels) },
+                { name: 'word/document.xml', data: encoder.encode(documentXml) }
+            ]);
+        }
+
+        function bytesToBase64(bytes) {
+            let bin = '';
+            for (let i = 0; i < bytes.length; i += 0x8000) {
+                bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+            }
+            return btoa(bin);
+        }
+
+        function base64ToBytes(b64) {
+            const bin = atob(b64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return bytes;
+        }
+        /* ── docx writer end ── */
+
+        /* ── Entry points used by the macOS app wrapper ── */
+        function openTextDocument(name, content, path) {
+            createNewTab(name, content);
+            if (path) setActiveTabPath(path);
+            showToast('Opened ' + name);
+        }
+
+        async function openDocxBase64(name, b64, path) {
+            try {
+                const content = await readDocxBuffer(base64ToBytes(b64).buffer);
+                createNewTab(name, content);
+                if (path) setActiveTabPath(path);
+                showToast('Opened ' + name);
+            } catch (err) {
+                showToast('Could not open: ' + (err.message || 'unknown error'));
+            }
+        }
+
+        function setActiveTabPath(path) {
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (tab) { tab.fsPath = path; saveTabs(); }
         }
 
         /* ── Drag & drop files ── */
@@ -1111,17 +1921,28 @@
                 openPageSetup();
                 return;
             }
+            // Ctrl+Shift+V  toggle wide/page view
+            if (mod && e.shiftKey && e.key === 'V') {
+                e.preventDefault();
+                togglePageView();
+                return;
+            }
+            // Ctrl+Shift+S  save as
+            if (mod && e.shiftKey && e.key === 'S') {
+                e.preventDefault();
+                exportFile();
+                return;
+            }
             // Ctrl+P  print
             if (mod && !e.shiftKey && e.key === 'p') {
                 e.preventDefault();
                 printDocument();
                 return;
             }
-            // Ctrl+S  save
+            // Ctrl+S  save (writes back to the opened file when run as the app)
             if (mod && e.key === 's') {
                 e.preventDefault();
-                saveCurrentTab();
-                showToast('Saved');
+                saveDocument();
                 return;
             }
             // Ctrl+N  new tab
@@ -1200,24 +2021,34 @@
         /* ══════════════════════════════════════
            Editor events
         ══════════════════════════════════════ */
-        let undoTimer;
+        let dirty = false;
+        let lastUndoPush = 0;
         editor.addEventListener('beforeinput', () => {
-            // snapshot before each edit for undo
-            clearTimeout(undoTimer);
-            undoTimer = setTimeout(() => pushUndo(), 0);
+            // snapshot at most every 400ms so a typing burst is one undo step
+            const now = Date.now();
+            if (now - lastUndoPush > 400) {
+                pushUndo();
+                lastUndoPush = now;
+            }
         });
 
+        let wordCountTimer;
         editor.addEventListener('input', () => {
-            updateWordCount();
+            dirty = true;
+            clearTimeout(wordCountTimer);
+            wordCountTimer = setTimeout(updateWordCount, 150);
         });
 
+        let titleSaveTimer;
         titleInput.addEventListener('input', () => {
             const tab = tabs.find(t => t.id === activeTabId);
-            if (tab) {
-                tab.title = titleInput.value;
-                saveTabs();
-                renderTabs();
-            }
+            if (!tab) return;
+            tab.title = titleInput.value;
+            dirty = true;
+            const activeSpan = document.querySelector('.tab.active span');
+            if (activeSpan) activeSpan.textContent = tab.title || ('file' + (tabs.indexOf(tab) + 1));
+            clearTimeout(titleSaveTimer);
+            titleSaveTimer = setTimeout(saveTabs, 800);
         });
 
         /* ══════════════════════════════════════
@@ -1239,16 +2070,329 @@
             clearTimeout(typingTimer);
             typingTimer = setTimeout(() => {
                 saveCurrentTab();
+                dirty = false;
                 statusCenter.textContent = 'saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             }, 800);
         });
 
         setInterval(() => {
-            if (activeTabId) {
+            if (activeTabId && dirty) {
                 saveCurrentTab();
+                dirty = false;
                 statusCenter.textContent = 'saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             }
         }, 10000);
+
+        /* ══════════════════════════════════════
+           Menu Bar (GEOS-style pull-downs)
+        ══════════════════════════════════════ */
+        const menubar = document.getElementById('menubar');
+        const menuClock = document.getElementById('menu-clock');
+        const menuDocName = document.getElementById('menu-docname');
+        let menuOpen = false;
+
+        function closeMenus() {
+            menubar.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open'));
+            menuOpen = false;
+        }
+
+        menubar.querySelectorAll('.menu').forEach(menu => {
+            const title = menu.querySelector('.menu-title');
+            title.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const wasOpen = menu.classList.contains('open');
+                closeMenus();
+                if (!wasOpen) { menu.classList.add('open'); menuOpen = true; }
+            });
+            // once a menu is down, sliding across titles switches menus
+            title.addEventListener('mouseenter', () => {
+                if (menuOpen && !menu.classList.contains('open')) {
+                    closeMenus();
+                    menu.classList.add('open');
+                    menuOpen = true;
+                }
+            });
+        });
+
+        menubar.addEventListener('mousedown', (e) => {
+            // keep editor focus/selection while using menus
+            if (e.target.closest('.menu-items')) e.preventDefault();
+        });
+        menubar.addEventListener('click', (e) => {
+            const item = e.target.closest('.menu-item');
+            if (!item) return;
+            closeMenus();
+            runMenuCommand(item.dataset.cmd);
+        });
+        document.addEventListener('mousedown', (e) => {
+            if (menuOpen && !menubar.contains(e.target)) closeMenus();
+        });
+
+        function runMenuCommand(cmd) {
+            switch (cmd) {
+                case 'about': showOverlay(aboutOverlay); break;
+                case 'notepad': toggleNotepad(); break;
+                case 'album': openAlbum(); break;
+                case 'scrap': addSelectionToAlbum(); break;
+                case 'new': createNewTab(); break;
+                case 'open': openFile(); break;
+                case 'save': saveDocument(); break;
+                case 'save-as': exportFile(); break;
+                case 'print': printDocument(); break;
+                case 'close': showCloseModal(activeTabId); break;
+                case 'undo': doUndo(); break;
+                case 'redo': doRedo(); break;
+                case 'find': openFind(); break;
+                case 'page-break': insertPageBreak(); break;
+                case 'prev-page': gotoPageBreak(-1); break;
+                case 'next-page': gotoPageBreak(1); break;
+                case 'page-view': togglePageView(); break;
+                case 'page-setup': openPageSetup(); break;
+                case 'geos': setGeosTheme(!body.classList.contains('geos')); break;
+                case 'dark': setDarkMode(body.classList.contains('light-mode')); break;
+                case 'font-up': changeFontSize(2); break;
+                case 'font-down': changeFontSize(-2); break;
+                case 'hide-menubar': setMenubar(false); break;
+            }
+        }
+
+        function setMenubar(show) {
+            body.classList.toggle('no-menubar', !show);
+            localStorage.setItem('menubar', show);
+            if (!show) showToast('menu bar hidden — ⇧⌘M to show');
+        }
+
+        function tickMenubar() {
+            menuClock.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            const tab = tabs.find(t => t.id === activeTabId);
+            menuDocName.textContent = tab ? (tab.title || 'untitled document') : '';
+        }
+        setInterval(tickMenubar, 1000);
+        titleInput.addEventListener('input', tickMenubar);
+
+        function setGeosTheme(on) {
+            body.classList.toggle('geos', on);
+            document.getElementById('geos-check').textContent = on ? '✓' : '';
+            localStorage.setItem('geosTheme', on);
+        }
+
+        function showOverlay(el) { el.style.display = 'flex'; }
+        function hideOverlay(el) { el.style.display = 'none'; editor.focus(); }
+
+        const aboutOverlay = document.getElementById('about-overlay');
+        document.getElementById('about-done').addEventListener('click', () => hideOverlay(aboutOverlay));
+        aboutOverlay.addEventListener('click', (e) => { if (e.target === aboutOverlay) hideOverlay(aboutOverlay); });
+
+        /* ══════════════════════════════════════
+           Page navigation (jump between page breaks)
+        ══════════════════════════════════════ */
+        function caretOffsetTop(pos) {
+            // mirror the textarea to find the pixel offset of a character
+            const cs = getComputedStyle(editor);
+            const mirror = document.createElement('div');
+            ['fontFamily', 'fontSize', 'lineHeight', 'paddingLeft', 'paddingRight', 'paddingTop', 'letterSpacing', 'tabSize']
+                .forEach(p => { mirror.style[p] = cs[p]; });
+            mirror.style.cssText += ';position:absolute;visibility:hidden;white-space:pre-wrap;word-wrap:break-word;box-sizing:border-box;top:0;left:-9999px;';
+            mirror.style.width = editor.clientWidth + 'px';
+            mirror.textContent = editor.value.substring(0, pos);
+            const marker = document.createElement('span');
+            marker.textContent = '​';
+            mirror.appendChild(marker);
+            document.body.appendChild(mirror);
+            const top = marker.offsetTop;
+            mirror.remove();
+            return top;
+        }
+
+        function gotoPageBreak(dir) {
+            const text = editor.value;
+            const pos = editor.selectionStart;
+            const starts = [0];
+            let i = -1;
+            while ((i = text.indexOf(PAGE_BREAK_MARKER, i + 1)) !== -1) {
+                let s = i + PAGE_BREAK_MARKER.length;
+                if (text[s] === '\n') s++;
+                starts.push(s);
+            }
+            let current = 0;
+            starts.forEach((s, idx) => { if (pos >= s) current = idx; });
+            const target = Math.min(starts.length - 1, Math.max(0, current + dir));
+            if (starts.length === 1) { showToast('no page breaks — ⇧↵ inserts one'); return; }
+            editor.focus();
+            editor.selectionStart = editor.selectionEnd = starts[target];
+            editor.scrollTop = Math.max(0, caretOffsetTop(starts[target]) - 40);
+            showToast('page ' + (target + 1) + ' of ' + starts.length);
+        }
+
+        /* ══════════════════════════════════════
+           Text Album (saved scraps)
+        ══════════════════════════════════════ */
+        const albumOverlay = document.getElementById('album-overlay');
+        const albumList = document.getElementById('album-list');
+
+        function loadAlbum() {
+            try { return JSON.parse(localStorage.getItem('textAlbum') || '[]'); } catch (e) { return []; }
+        }
+        function saveAlbum(album) { localStorage.setItem('textAlbum', JSON.stringify(album)); }
+
+        function addSelectionToAlbum() {
+            const sel = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+            if (!sel.trim()) { showToast('select some text first'); return; }
+            const album = loadAlbum();
+            album.unshift({ id: Date.now().toString(36), text: sel });
+            saveAlbum(album);
+            showToast('saved to text album (' + album.length + ')');
+            if (albumOverlay.style.display === 'flex') renderAlbum();
+        }
+
+        function renderAlbum() {
+            const album = loadAlbum();
+            albumList.innerHTML = '';
+            if (album.length === 0) {
+                albumList.innerHTML = '<div class="album-empty">No scraps yet. Select text and press ⇧⌘C.</div>';
+                return;
+            }
+            album.forEach(scrap => {
+                const row = document.createElement('div');
+                row.className = 'album-entry';
+                const txt = document.createElement('span');
+                txt.className = 'album-text';
+                txt.textContent = scrap.text;
+                const del = document.createElement('span');
+                del.className = 'album-del';
+                del.textContent = '×';
+                del.title = 'Delete scrap';
+                del.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    saveAlbum(loadAlbum().filter(s => s.id !== scrap.id));
+                    renderAlbum();
+                });
+                row.addEventListener('click', () => {
+                    hideOverlay(albumOverlay);
+                    pasteScrap(scrap.text);
+                });
+                row.append(txt, del);
+                albumList.appendChild(row);
+            });
+        }
+
+        function pasteScrap(text) {
+            pushUndo();
+            editor.setRangeText(text, editor.selectionStart, editor.selectionEnd, 'end');
+            editor.focus();
+            saveCurrentTab();
+            updateWordCount();
+        }
+
+        function openAlbum() { renderAlbum(); showOverlay(albumOverlay); }
+        document.getElementById('album-done').addEventListener('click', () => hideOverlay(albumOverlay));
+        document.getElementById('album-add').addEventListener('click', addSelectionToAlbum);
+        albumOverlay.addEventListener('click', (e) => { if (e.target === albumOverlay) hideOverlay(albumOverlay); });
+
+        /* ══════════════════════════════════════
+           Note Pad (desk accessory)
+        ══════════════════════════════════════ */
+        const notepad = document.getElementById('notepad');
+        const notepadText = document.getElementById('notepad-text');
+        const notepadPageLabel = document.getElementById('notepad-page');
+        let notepadPages = [''];
+        let notepadIndex = 0;
+        try {
+            const np = JSON.parse(localStorage.getItem('notepad') || 'null');
+            if (np && Array.isArray(np.pages) && np.pages.length) { notepadPages = np.pages; notepadIndex = Math.min(np.index || 0, np.pages.length - 1); }
+        } catch (e) {}
+
+        function saveNotepad() {
+            localStorage.setItem('notepad', JSON.stringify({ pages: notepadPages, index: notepadIndex }));
+        }
+        function showNotepadPage() {
+            notepadText.value = notepadPages[notepadIndex];
+            notepadPageLabel.textContent = 'page ' + (notepadIndex + 1) + ' of ' + notepadPages.length;
+        }
+        function flipNotepad(dir) {
+            notepadIndex = (notepadIndex + dir + notepadPages.length) % notepadPages.length;
+            showNotepadPage();
+            saveNotepad();
+        }
+        function toggleNotepad() {
+            const show = !notepad.classList.contains('visible');
+            notepad.classList.toggle('visible', show);
+            localStorage.setItem('notepadOpen', show);
+            if (show) { showNotepadPage(); notepadText.focus(); } else editor.focus();
+        }
+
+        notepadText.addEventListener('input', () => { notepadPages[notepadIndex] = notepadText.value; saveNotepad(); });
+        document.getElementById('notepad-prev').addEventListener('click', () => flipNotepad(-1));
+        document.getElementById('notepad-next').addEventListener('click', () => flipNotepad(1));
+        document.getElementById('notepad-close').addEventListener('click', toggleNotepad);
+        document.getElementById('notepad-new').addEventListener('click', () => {
+            notepadPages.splice(notepadIndex + 1, 0, '');
+            notepadIndex++;
+            showNotepadPage();
+            saveNotepad();
+            notepadText.focus();
+        });
+        notepadText.addEventListener('keydown', (e) => {
+            // Backspace on an empty page tears it out
+            if (e.key === 'Backspace' && notepadText.value === '' && notepadPages.length > 1) {
+                e.preventDefault();
+                notepadPages.splice(notepadIndex, 1);
+                notepadIndex = Math.max(0, notepadIndex - 1);
+                showNotepadPage();
+                saveNotepad();
+            }
+        });
+
+        // drag by the title bar
+        (function () {
+            const bar = document.getElementById('notepad-titlebar');
+            let dx = 0, dy = 0, dragging = false;
+            bar.addEventListener('mousedown', (e) => {
+                if (e.target.tagName === 'BUTTON') return;
+                dragging = true;
+                const r = notepad.getBoundingClientRect();
+                dx = e.clientX - r.left; dy = e.clientY - r.top;
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', (e) => {
+                if (!dragging) return;
+                const x = Math.max(0, Math.min(window.innerWidth - notepad.offsetWidth, e.clientX - dx));
+                const y = Math.max(0, Math.min(window.innerHeight - 40, e.clientY - dy));
+                notepad.style.left = x + 'px'; notepad.style.top = y + 'px'; notepad.style.right = 'auto';
+            });
+            document.addEventListener('mouseup', () => {
+                if (!dragging) return;
+                dragging = false;
+                localStorage.setItem('notepadPos', JSON.stringify({ left: notepad.style.left, top: notepad.style.top }));
+            });
+            try {
+                const pos = JSON.parse(localStorage.getItem('notepadPos') || 'null');
+                if (pos && window.innerWidth > 768) { notepad.style.left = pos.left; notepad.style.top = pos.top; notepad.style.right = 'auto'; }
+            } catch (e) {}
+        })();
+
+        // GEOS-feature shortcuts
+        document.addEventListener('keydown', (e) => {
+            const mod = e.ctrlKey || e.metaKey;
+            if (!mod) {
+                if (e.key === 'Escape') {
+                    if (menuOpen) closeMenus();
+                    else if (albumOverlay.style.display === 'flex') hideOverlay(albumOverlay);
+                    else if (aboutOverlay.style.display === 'flex') hideOverlay(aboutOverlay);
+                    else if (document.activeElement === notepadText) toggleNotepad();
+                }
+                return;
+            }
+            const k = e.key.toLowerCase();
+            let cmd = null;
+            if (e.shiftKey && k === 'n') cmd = 'notepad';
+            else if (e.shiftKey && k === 'a') cmd = 'album';
+            else if (e.shiftKey && k === 'c') cmd = 'scrap';
+            else if (e.shiftKey && k === 'm') { e.preventDefault(); setMenubar(body.classList.contains('no-menubar')); return; }
+            else if (e.altKey && e.key === 'ArrowUp') cmd = 'prev-page';
+            else if (e.altKey && e.key === 'ArrowDown') cmd = 'next-page';
+            if (cmd) { e.preventDefault(); e.stopImmediatePropagation(); runMenuCommand(cmd); }
+        }, true);
 
         /* ══════════════════════════════════════
            Init
@@ -1282,6 +2426,12 @@
                 loadActiveTab();
             }
             updateWordCount();
+
+            // GEOS-inspired extras
+            if (localStorage.getItem('geosTheme') === 'true') setGeosTheme(true);
+            if (localStorage.getItem('menubar') === 'false') body.classList.add('no-menubar');
+            if (localStorage.getItem('notepadOpen') === 'true') { notepad.classList.add('visible'); showNotepadPage(); }
+            tickMenubar();
 
             // register service worker
             if ('serviceWorker' in navigator) {
