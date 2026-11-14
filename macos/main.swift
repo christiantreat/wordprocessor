@@ -2,7 +2,8 @@
 // Build with macos/build.sh. The web app lives in Contents/Resources/wordprocessor.
 //
 // Bridges exposed to JavaScript (window.webkit.messageHandlers):
-//   print    — body: {top, bottom, left, right} margins in points; runs NSPrintOperation
+//   print    — body: {paged: true, paper: letter|a4} (zero margins, page draws its own) or
+//              {top, bottom, left, right} margins in points; runs NSPrintOperation
 //   backup   — body: JSON string snapshot {savedAt, tabs, notepad, textAlbum}; written to
 //              ~/Documents/Word Processor Backups (latest.json, readable .txt copies, hourly snapshots)
 //   saveFile — body: {name, tabId?, path?, text? | base64?}
@@ -392,7 +393,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         printInfo.verticalPagination = .automatic
         printInfo.isHorizontallyCentered = false
         printInfo.isVerticallyCentered = false
-        if let margins = body as? [String: Any] {
+        if let margins = body as? [String: Any], (margins["paged"] as? Bool) == true {
+            // paged print: the page draws its own margins at exact paper size (1 CSS px = 0.75 pt)
+            printInfo.paperSize = (margins["paper"] as? String) == "a4"
+                ? NSSize(width: 595.28, height: 841.89) : NSSize(width: 612, height: 792)
+            printInfo.topMargin = 0; printInfo.bottomMargin = 0
+            printInfo.leftMargin = 0; printInfo.rightMargin = 0
+        } else if let margins = body as? [String: Any] {
             printInfo.topMargin = points(margins["top"])
             printInfo.bottomMargin = points(margins["bottom"])
             printInfo.leftMargin = points(margins["left"])

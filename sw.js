@@ -1,4 +1,4 @@
-const CACHE_NAME = 'writer-v9';
+const CACHE_NAME = 'writer-v10';
 const ASSETS = [
     './',
     './index.html',

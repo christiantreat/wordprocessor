@@ -666,6 +666,58 @@
                 padding-right: var(--page-margin, 48px);
             }
         }
+
+        /* ── paged view: real sheets with top/bottom margins (what you see is what you print) ── */
+        #pages { display: none; }
+        body.page-view #pages {
+            display: block; flex: 1 1 auto; min-height: 0; overflow: auto;
+            padding: 8px 16px 80px;
+        }
+        body.page-view #editor {
+            position: fixed !important; left: -10000px !important; top: 0 !important;
+            width: 400px !important; height: 100px !important; flex: none !important;
+            opacity: 0 !important; pointer-events: none !important;
+        }
+        .page {
+            position: relative; box-sizing: border-box; flex-shrink: 0;
+            width: var(--page-width, 816px); height: var(--page-height, 1056px);
+            padding: var(--page-margin, 96px);
+            margin: 0 auto 28px auto;
+            box-shadow: 0 1px 10px rgba(0, 0, 0, 0.15);
+        }
+        body.page-view.light-mode .page { background-color: var(--base3); }
+        body.page-view.dark-mode .page { background-color: var(--base03); }
+        .page textarea {
+            display: block; width: 100%; height: 100%; box-sizing: border-box;
+            margin: 0; padding: 0; border: none; outline: none; resize: none; overflow: hidden;
+            background: transparent; color: inherit;
+            font-family: inherit; font-size: var(--font-size); line-height: 1.6; tab-size: 4;
+            white-space: pre-wrap; overflow-wrap: break-word;
+        }
+        .page-num {
+            position: absolute; left: 0; right: 0; text-align: center; font-size: 11px; opacity: 0.55;
+            bottom: calc(var(--page-margin, 96px) / 2 - 7px); pointer-events: none;
+        }
+        #page-measure {
+            position: fixed; left: -20000px; top: 0; visibility: hidden; height: auto; padding: 0; box-shadow: none;
+        }
+        #page-measure textarea { height: 0; min-height: 0; }
+        body.geos.page-view .page { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25); border: 1px solid var(--base01); }
+        @media print {
+            .print-content .print-page {
+                position: relative; box-sizing: border-box; overflow: hidden;
+                width: var(--page-width, 816px); height: calc(var(--page-height, 1056px) - 4px);
+                padding: var(--page-margin, 96px);
+                page-break-after: always; break-after: page;
+            }
+            .print-content .print-page:last-child { page-break-after: auto; break-after: auto; }
+            .print-content .print-text { white-space: pre-wrap; overflow-wrap: break-word; tab-size: 4; }
+            .print-content .print-num {
+                position: absolute; left: 0; right: 0; text-align: center; font-size: 11px;
+                bottom: calc(var(--page-margin, 96px) / 2 - 7px);
+            }
+            #pages, #page-measure { display: none !important; }
+        }
         body.storage-full #status-center { color: #dc322f; font-weight: bold; }
     </style>
 </head>
@@ -743,6 +795,8 @@
     </div>
 
     <textarea id="editor" placeholder="Start typing here..."></textarea>
+    <div id="pages"></div>
+    <div id="page-measure" class="page" aria-hidden="true"><textarea tabindex="-1"></textarea></div>
 
     <div class="toolbar">
         <button data-action="find">Find</button>
@@ -996,6 +1050,7 @@
             pageViewToggle.classList.toggle('active', on);
             viewToggleBtn.textContent = on ? 'view: page' : 'view: wide';
             localStorage.setItem('pageView', on);
+            if (typeof onPageViewChanged === 'function' && typeof pageEls !== 'undefined') onPageViewChanged(on);
         }
 
         function togglePageView() {
@@ -1005,6 +1060,7 @@
         function applyPaperSize(size) {
             const width = PAGE_SIZES[size] || PAGE_SIZES.letter;
             document.documentElement.style.setProperty('--page-width', width + 'px');
+            document.documentElement.style.setProperty('--page-height', (PAGE_HEIGHTS[size] || PAGE_HEIGHTS.letter) + 'px');
             localStorage.setItem('paperSize', size);
         }
 
@@ -1029,26 +1085,11 @@
 
         function printDocument() {
             saveCurrentTab();
-            const content = editor.value;
-            const printDiv = document.getElementById('print-content');
-            const sections = content.split(PAGE_BREAK_MARKER);
-
-            printDiv.innerHTML = '';
-            sections.forEach((section, i) => {
-                const div = document.createElement('div');
-                div.className = 'print-section' + (i > 0 ? ' print-page-break' : '');
-                div.textContent = section;
-                printDiv.appendChild(div);
-            });
-
-            // Convert margin setting to points (1 inch = 72pt)
-            const marginPt = { normal: 72, narrow: 36, wide: 90 };
-            const m = marginPt[pageMarginsSelect.value] || 72;
-            const margins = { top: m, bottom: m, left: m, right: m };
-
-            // Use native macOS print if available (WKWebView), else fallback
-            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.print) {
-                window.webkit.messageHandlers.print.postMessage(margins);
+            // same pagination as page view: one .print-page per sheet, margins drawn inside it
+            buildPrintPages(document.getElementById('print-content'));
+            const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.print;
+            if (native) {
+                native.postMessage({ paged: true, paper: paperSizeSelect.value, top: 0, bottom: 0, left: 0, right: 0 });
             } else {
                 window.print();
             }
@@ -1954,7 +1995,7 @@
             const mod = e.ctrlKey || e.metaKey;
 
             // Shift+Enter  insert page break
-            if (e.shiftKey && e.key === 'Enter' && !mod && document.activeElement === editor) {
+            if (e.shiftKey && e.key === 'Enter' && !mod && (document.activeElement === editor || isPageTA(document.activeElement))) {
                 e.preventDefault();
                 insertPageBreak();
                 return;
@@ -2437,6 +2478,288 @@
             else if (e.altKey && e.key === 'ArrowDown') cmd = 'next-page';
             if (cmd) { e.preventDefault(); e.stopImmediatePropagation(); runMenuCommand(cmd); }
         }, true);
+
+        /* ══════════════════════════════════════
+           Paged view (what you see is what you print)
+           In page view the hidden #editor stays the single source of truth; the visible
+           pages are slices of its text. Text flows page to page automatically, a
+           "--- page break ---" line starts a new sheet, and printing renders the exact
+           same slices onto real paper-sized pages.
+        ══════════════════════════════════════ */
+        const pagesEl = document.getElementById('pages');
+        const measureTA = document.querySelector('#page-measure textarea');
+        const PAGE_HEIGHTS = { letter: 1056, a4: 1123 };
+        const PAGE_BREAK_RE = /\n?--- page break ---\n?/g;   // keep in sync with PAGE_BREAK_MARKER
+        let pv = { text: null, pages: [], key: '', g: null };
+        let pageEls = [];
+
+        function isPageTA(el) { return !!(el && el.tagName === 'TEXTAREA' && el.parentNode && el.parentNode.classList && el.parentNode.classList.contains('page') && el.parentNode.parentNode === pagesEl); }
+        function pagedOn() { return body.classList.contains('page-view'); }
+
+        function pageGeom() {
+            const root = getComputedStyle(document.documentElement);
+            const w = parseFloat(root.getPropertyValue('--page-width')) || 816;
+            const h = parseFloat(root.getPropertyValue('--page-height')) || 1056;
+            const m = parseFloat(root.getPropertyValue('--page-margin')) || 96;
+            measureTA.style.width = (w - 2 * m) + 'px';
+            const cs = getComputedStyle(measureTA);
+            const lh = parseFloat(cs.lineHeight) || 25.6;
+            const lines = Math.max(1, Math.floor((h - 2 * m) / lh + 0.001));
+            const ctx = (pageGeom.c = pageGeom.c || document.createElement('canvas')).getContext('2d');
+            ctx.font = cs.fontSize + ' ' + cs.fontFamily;
+            const cw = Math.max(1, ctx.measureText('MMMMMMMMMM').width / 10);
+            const cols = Math.ceil((w - 2 * m) / cw) * 2 + 4;   // generous upper bound
+            return { w, h, m, lh, lines, cols, maxH: lines * lh + 1,
+                     key: [w, h, m, cs.fontSize, cs.fontFamily, document.fonts ? document.fonts.status : ''].join('|') };
+        }
+
+        function textHeight(s) { measureTA.value = s; return measureTA.scrollHeight; }
+
+        // largest end in (pos, secEnd] whose slice fits one page, snapped back to a word boundary
+        function fitEnd(text, pos, secEnd, g) {
+            const fits = end => textHeight(text.slice(pos, end)) <= g.maxH;
+            let hi = Math.min(secEnd, pos + g.lines * (g.cols + 1));
+            while (hi < secEnd && fits(hi)) hi = Math.min(secEnd, pos + (hi - pos) * 2);
+            if (fits(hi)) return hi;
+            let lo = pos;
+            while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (fits(mid)) lo = mid; else hi = mid; }
+            let e = Math.max(lo, pos + 1);
+            // don't split a word across pages: move the cut back to the last space/newline
+            if (e < secEnd && !/\s/.test(text[e]) && !/\s/.test(text[e - 1])) {
+                const chunk = text.slice(pos, e);
+                const j = Math.max(chunk.lastIndexOf(' '), chunk.lastIndexOf('\t'), chunk.lastIndexOf('\n'));
+                if (j > 0 && chunk.length - j <= g.cols) e = pos + (chunk[j] === '\n' ? j : j + 1);
+            }
+            return e;
+        }
+
+        // rebuild pages from page index `from`; reuse old pages once the layout re-converges
+        function buildPages(text, from, old, delta, oldEditEnd, g) {
+            const pages = old.slice(0, from);
+            let pos = from > 0 ? old[from].start : 0;
+            let breakBefore = from > 0 ? old[from].breakBefore : false;
+            const oldByStart = new Map();
+            old.forEach((p, i) => { if (i > from && p.start >= oldEditEnd) oldByStart.set(p.start, i); });
+            for (let guard = 0; guard < 100000; guard++) {
+                if (pages.length > from) {
+                    const oi = oldByStart.get(pos - delta);
+                    if (oi !== undefined && old[oi].breakBefore === breakBefore) {
+                        old.slice(oi).forEach(p => pages.push({ start: p.start + delta, end: p.end + delta, breakBefore: p.breakBefore }));
+                        return pages;
+                    }
+                }
+                PAGE_BREAK_RE.lastIndex = pos;
+                const mm = PAGE_BREAK_RE.exec(text);
+                const secEnd = mm ? mm.index : text.length;
+                const end = pos >= secEnd ? pos : fitEnd(text, pos, secEnd, g);
+                pages.push({ start: pos, end, breakBefore });
+                if (end < secEnd) { pos = text[end] === '\n' ? end + 1 : end; breakBefore = false; }
+                else if (mm) { pos = mm.index + mm[0].length; breakBefore = true; }
+                else break;
+            }
+            return pages;
+        }
+
+        function syncPages(newText, force) {
+            const g = pageGeom();
+            if (force || pv.text === null || g.key !== pv.key) {
+                pv = { text: newText, pages: buildPages(newText, 0, [], 0, 0, g), key: g.key, g };
+                renderPages();
+                return true;
+            }
+            if (newText === pv.text) return false;
+            const old = pv.text, min = Math.min(old.length, newText.length);
+            let p = 0; while (p < min && old.charCodeAt(p) === newText.charCodeAt(p)) p++;
+            let s = 0; while (s < min - p && old.charCodeAt(old.length - 1 - s) === newText.charCodeAt(newText.length - 1 - s)) s++;
+            let k = 0; while (k + 1 < pv.pages.length && pv.pages[k + 1].start <= p) k++;
+            k = Math.max(0, k - 1);
+            pv.pages = buildPages(newText, k, pv.pages, newText.length - old.length, old.length - s, g);
+            pv.text = newText; pv.g = g;
+            renderPages();
+            return true;
+        }
+
+        function renderPages() {
+            const pages = pv.pages, text = pv.text;
+            while (pageEls.length < pages.length) {
+                const el = document.createElement('div'); el.className = 'page';
+                const ta = document.createElement('textarea'); ta.spellcheck = editor.spellcheck;
+                const num = document.createElement('div'); num.className = 'page-num';
+                el.appendChild(ta); el.appendChild(num); pagesEl.appendChild(el);
+                pageEls.push({ el, ta, num });
+            }
+            while (pageEls.length > pages.length) pageEls.pop().el.remove();
+            pages.forEach((p, i) => {
+                const pe = pageEls[i], v = text.slice(p.start, p.end);
+                if (pe.ta.value !== v) pe.ta.value = v;
+                pe.ta.dataset.i = i;
+                pe.ta.placeholder = i === 0 ? editor.placeholder : '';
+                pe.num.textContent = pages.length > 1 ? String(i + 1) : '';
+            });
+        }
+
+        // which page shows global offset gs (a caret exactly on a soft page boundary goes to the next page)
+        function pageIndexFor(gs, hint) {
+            const ps = pv.pages;
+            if (hint !== undefined && ps[hint] && gs >= ps[hint].start && gs <= ps[hint].end) return hint;
+            for (let i = 0; i < ps.length; i++) {
+                const p = ps[i], next = ps[i + 1];
+                if (gs < p.end || (gs === p.end && (!next || next.start > p.end))) return i;
+                if (next && gs < next.start) return i;   // inside a hidden boundary/break: end of this page
+            }
+            return ps.length - 1;
+        }
+
+        function placeCaret(gs, ge, hint) {
+            if (!pageEls.length) return;
+            const i = pageIndexFor(gs, hint), p = pv.pages[i], ta = pageEls[i].ta;
+            const len = p.end - p.start;
+            const a = Math.max(0, Math.min(len, gs - p.start));
+            const b = Math.max(a, Math.min(len, (ge === undefined ? gs : ge) - p.start));
+            if (document.activeElement !== ta) ta.focus({ preventScroll: true });
+            ta.setSelectionRange(a, b);
+            scrollCaretIntoView(i, a);
+        }
+
+        function scrollCaretIntoView(i, local) {
+            const g = pv.g || pageGeom(), ta = pageEls[i].ta;
+            const y = textHeight(ta.value.slice(0, local));
+            const r = pageEls[i].el.getBoundingClientRect(), c = pagesEl.getBoundingClientRect();
+            const bottom = r.top + g.m + y, top = bottom - g.lh;
+            if (bottom > c.bottom - 24) pagesEl.scrollTop += bottom - c.bottom + 60;
+            else if (top < c.top + 8) pagesEl.scrollTop -= c.top - top + 60;
+        }
+
+        function syncEditorSelection(ta) {
+            const p = pv.pages[+ta.dataset.i];
+            if (p) editor.setSelectionRange(p.start + ta.selectionStart, p.start + ta.selectionEnd);
+        }
+
+        function pagedEdit(a, b, str, caret) {
+            pushUndo(); lastUndoPush = Date.now();
+            const t = pv.text.slice(0, a) + str + pv.text.slice(b);
+            editor.value = t;
+            editor.setSelectionRange(caret, caret);
+            syncPages(t);
+            placeCaret(caret, caret);
+            editor.dispatchEvent(new Event('input'));
+        }
+
+        pagesEl.addEventListener('beforeinput', (e) => {
+            if (!isPageTA(e.target)) return;
+            syncEditorSelection(e.target);
+            const now = Date.now();
+            if (now - lastUndoPush > 400) { pushUndo(); lastUndoPush = now; }
+        });
+
+        pagesEl.addEventListener('input', (e) => {
+            const ta = e.target;
+            if (!isPageTA(ta)) return;
+            const p = pv.pages[+ta.dataset.i];
+            const t = pv.text.slice(0, p.start) + ta.value + pv.text.slice(p.end);
+            const cs = p.start + ta.selectionStart, ce = p.start + ta.selectionEnd;
+            editor.value = t;
+            editor.setSelectionRange(cs, ce);
+            syncPages(t);
+            placeCaret(cs, ce);
+            editor.dispatchEvent(new Event('input'));
+        });
+
+        function caretOnFirstLine(ta, s) {
+            const before = ta.value.slice(0, s);
+            return !before.includes('\n') && textHeight(before) <= (pv.g ? pv.g.lh * 1.5 : 40);
+        }
+        function caretOnLastLine(ta, s) {
+            return !ta.value.slice(s).includes('\n') && textHeight(ta.value.slice(0, s)) >= textHeight(ta.value);
+        }
+
+        pagesEl.addEventListener('keydown', (e) => {
+            const ta = e.target;
+            if (!isPageTA(ta)) return;
+            const i = +ta.dataset.i, ps = pv.pages, p = ps[i], last = ps.length - 1;
+            const s = ta.selectionStart, collapsed = s === ta.selectionEnd;
+            const mod = e.metaKey || e.ctrlKey || e.altKey;
+            if (!collapsed || mod) return;
+            if (e.key === 'Backspace' && s === 0 && i > 0) {
+                e.preventDefault();
+                const prev = ps[i - 1];
+                // deletes the page break (or the hidden line break) between the pages,
+                // else the last character of the previous page
+                if (p.start > prev.end) pagedEdit(prev.end, p.start, '', prev.end);
+                else pagedEdit(p.start - 1, p.start, '', p.start - 1);
+                return;
+            }
+            if (e.key === 'Delete' && s === ta.value.length && i < last) {
+                e.preventDefault();
+                const next = ps[i + 1];
+                if (next.start > p.end) pagedEdit(p.end, next.start, '', p.end);
+                else pagedEdit(p.end, p.end + 1, '', p.end);
+                return;
+            }
+            if (e.shiftKey) return;
+            if (i > 0 && ((e.key === 'ArrowLeft' && s === 0) || (e.key === 'ArrowUp' && caretOnFirstLine(ta, s)))) {
+                e.preventDefault(); placeCaret(ps[i - 1].end, ps[i - 1].end, i - 1); syncEditorSelection(pageEls[i - 1].ta); return;
+            }
+            if (i < last && ((e.key === 'ArrowRight' && s === ta.value.length) || (e.key === 'ArrowDown' && caretOnLastLine(ta, s)))) {
+                e.preventDefault(); placeCaret(ps[i + 1].start, ps[i + 1].start, i + 1); syncEditorSelection(pageEls[i + 1].ta); return;
+            }
+        });
+
+        document.addEventListener('selectionchange', () => {
+            if (isPageTA(document.activeElement)) syncEditorSelection(document.activeElement);
+        });
+
+        // anything that focuses the (hidden) editor in page view lands on the right page instead
+        editor.addEventListener('focus', () => {
+            if (!pagedOn()) return;
+            setTimeout(() => {
+                if (document.activeElement !== editor) return;
+                syncPages(editor.value);
+                placeCaret(editor.selectionStart, editor.selectionEnd);
+            }, 0);
+        });
+
+        // picks up programmatic changes (undo, replace, tab switch, album paste, font size…)
+        setInterval(() => {
+            if (!pagedOn()) return;
+            const a = document.activeElement;
+            const hadFocus = a === editor || isPageTA(a);
+            const sel = [editor.selectionStart, editor.selectionEnd];
+            if (syncPages(editor.value) && hadFocus) placeCaret(sel[0], sel[1]);
+        }, 150);
+
+        if (document.fonts) {
+            document.fonts.ready.then(() => { if (pagedOn()) syncPages(editor.value, true); });
+        }
+
+        function onPageViewChanged(on) {
+            if (on) {
+                const hadFocus = document.activeElement === editor;
+                syncPages(editor.value, true);
+                if (hadFocus) placeCaret(editor.selectionStart, editor.selectionEnd);
+            } else if (isPageTA(document.activeElement)) {
+                const s = editor.selectionStart, en = editor.selectionEnd;
+                editor.focus(); editor.setSelectionRange(s, en);
+            }
+        }
+
+        // printing: lay out the same pages and render each as one physical sheet
+        function buildPrintPages(printDiv) {
+            syncPages(editor.value, true);
+            printDiv.innerHTML = '';
+            const n = pv.pages.length;
+            pv.pages.forEach((p, i) => {
+                const pg = document.createElement('div'); pg.className = 'print-page';
+                const t = document.createElement('div'); t.className = 'print-text';
+                t.textContent = pv.text.slice(p.start, p.end);
+                pg.appendChild(t);
+                if (n > 1) { const num = document.createElement('div'); num.className = 'print-num'; num.textContent = String(i + 1); pg.appendChild(num); }
+                printDiv.appendChild(pg);
+            });
+            let st = document.getElementById('page-style');
+            if (!st) { st = document.createElement('style'); st.id = 'page-style'; document.head.appendChild(st); }
+            st.textContent = '@page { size: ' + (paperSizeSelect.value === 'a4' ? 'A4' : 'letter') + '; margin: 0; }';
+        }
 
         /* ══════════════════════════════════════
            Disk backups + recovery (macOS app only)
