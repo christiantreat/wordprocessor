@@ -417,7 +417,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
         // direct save-back to a known path (Cmd+S on a file opened from disk)
         if let path = dict["path"] as? String, !path.isEmpty {
-            writeFile(dict, to: URL(fileURLWithPath: path), tabId: nil)
+            var url = URL(fileURLWithPath: path)
+            // uniquePath: never replace an existing file (used when an opened .docx is
+            // saved as .txt) — pick "name (edited).txt", "name (edited 2).txt", …
+            if (dict["uniquePath"] as? Bool) == true {
+                let fm = FileManager.default
+                let dir = url.deletingLastPathComponent()
+                let base = url.deletingPathExtension().lastPathComponent
+                let ext = url.pathExtension
+                var n = 1
+                while fm.fileExists(atPath: url.path) {
+                    let suffix = n == 1 ? " (edited)" : " (edited \(n))"
+                    url = dir.appendingPathComponent(base + suffix).appendingPathExtension(ext)
+                    n += 1
+                }
+            }
+            writeFile(dict, to: url, tabId: dict["tabId"] as? String)
             return
         }
 
@@ -446,7 +461,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             if let tabId = tabId {
                 runJS("savedAs(tabId, path);", ["tabId": tabId, "path": url.path])
             }
-            showJSToast("Saved \(url.lastPathComponent)")
+            if let note = dict["note"] as? String {
+                showJSToast("Saved \(url.lastPathComponent) — \(note)")
+            } else {
+                showJSToast("Saved \(url.lastPathComponent)")
+            }
         } catch {
             showJSToast("Save failed: \(error.localizedDescription)")
         }

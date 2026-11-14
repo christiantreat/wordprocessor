@@ -1414,7 +1414,7 @@
             const tab = tabs.find(t => t.id === activeTabId);
             if (!tab) return;
             exportFilenameInput.value = tab.title || 'untitled';
-            if (tab.fsPath && /\.docx$/i.test(tab.fsPath)) exportFormatSelect.value = 'docx';
+            if (tab.fsPath && /\.docx$/i.test(tab.fsPath)) exportFormatSelect.value = 'txt';  // plain-text editor: don't default to overwriting a formatted .docx
             else exportFormatSelect.value = localStorage.getItem('exportFormat') || 'md';
             exportOverlay.style.display = 'flex';
             setTimeout(() => { exportFilenameInput.focus(); exportFilenameInput.select(); }, 0);
@@ -1459,8 +1459,16 @@
             saveCurrentTab();
             const tab = tabs.find(t => t.id === activeTabId);
             const native = nativeHandler('saveFile');
-            if (tab && tab.fsPath && native) {
-                const ext = /\.docx$/i.test(tab.fsPath) ? 'docx' : 'txt';
+            if (tab && tab.fsPath && native && /\.docx$/i.test(tab.fsPath)) {
+                // never overwrite an opened .docx: this editor is plain text, so writing it back
+                // would erase the original formatting. Save a .txt next to it instead; the
+                // wrapper picks a free name and calls savedAs() so later Cmd+S goes to the .txt.
+                const txtPath = tab.fsPath.replace(/\.docx$/i, '.txt');
+                native.postMessage({ name: txtPath.split('/').pop(), path: txtPath, tabId: tab.id,
+                                     uniquePath: true, text: tab.content,
+                                     note: 'original .docx left untouched' });
+            } else if (tab && tab.fsPath && native) {
+                const ext = 'txt';
                 const msg = Object.assign(
                     { name: tab.fsPath.split('/').pop(), path: tab.fsPath },
                     fileDataFor(tab, ext)
