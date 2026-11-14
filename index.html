@@ -664,6 +664,7 @@
                 padding-right: var(--page-margin, 48px);
             }
         }
+        body.storage-full #status-center { color: #dc322f; font-weight: bold; }
     </style>
 </head>
 <body class="light-mode">
@@ -868,6 +869,38 @@
 
     <script>
         /* ══════════════════════════════════════
+           Storage-full guard
+           localStorage throws QuotaExceededError when full (~5 MB); without this every
+           autosave would fail silently. Warn loudly and push a disk backup instead.
+        ══════════════════════════════════════ */
+        let storageFull = false;
+        (function guardStorage() {
+            const origSet = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (key, value) {
+                try {
+                    origSet.call(this, key, value);
+                    if (storageFull && (key === 'tabs' || key === 'notepad' || key === 'textAlbum')) {
+                        storageFull = false;
+                        document.body.classList.remove('storage-full');
+                        if (typeof showToast === 'function') showToast('storage OK again');
+                    }
+                } catch (err) {
+                    const wasFull = storageFull;
+                    storageFull = true;
+                    document.body.classList.add('storage-full');
+                    const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.backup;
+                    const where = native ? 'Your work is being backed up to Documents › Word Processor Backups. ' : '';
+                    if (typeof statusCenter !== 'undefined') statusCenter.textContent = '⚠ storage full — not autosaving';
+                    if (typeof requestBackup === 'function') requestBackup(true);
+                    if (!wasFull) {
+                        setTimeout(() => alert('Storage is full — autosave stopped working.\n\n' + where +
+                            'Save your documents to files (File › Save As) and close tabs you no longer need.'), 0);
+                    }
+                }
+            };
+        })();
+
+        /* ══════════════════════════════════════
            State
         ══════════════════════════════════════ */
         let tabs = [];
@@ -1063,6 +1096,7 @@
         function saveCurrentTab() {
             const tab = tabs.find(t => t.id === activeTabId);
             if (tab) {
+                if (tab.content !== editor.value || tab.title !== titleInput.value) tab.updatedAt = Date.now();
                 tab.content = editor.value;
                 tab.title = titleInput.value;
                 saveTabs();
@@ -2393,6 +2427,115 @@
             else if (e.altKey && e.key === 'ArrowDown') cmd = 'next-page';
             if (cmd) { e.preventDefault(); e.stopImmediatePropagation(); runMenuCommand(cmd); }
         }, true);
+
+        /* ══════════════════════════════════════
+           Disk backups + recovery (macOS app only)
+           The wrapper writes snapshots to ~/Documents/Word Processor Backups.
+           Backups stay off until checkRecovery() has run, so a wiped store
+           can never overwrite a good backup.
+        ══════════════════════════════════════ */
+        let backupsReady = false;
+        let lastBackupJSON = '';
+
+        function buildBackupSnapshot() {
+            if (activeTabId) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (tab && (tab.content !== editor.value || tab.title !== titleInput.value)) {
+                    tab.content = editor.value; tab.title = titleInput.value; tab.updatedAt = Date.now();
+                }
+            }
+            return {
+                tabs: tabs.map(t => ({ id: t.id, title: t.title || '', content: t.content || '', fsPath: t.fsPath || null, updatedAt: t.updatedAt || 0 })),
+                activeTabId: activeTabId,
+                notepad: notepadPages.slice(),
+                textAlbum: loadAlbum(),
+            };
+        }
+
+        function requestBackup(force) {
+            const native = nativeHandler('backup');
+            if (!native || !backupsReady) return;
+            const body = buildBackupSnapshot();
+            const json = JSON.stringify(body);
+            if (!force && json === lastBackupJSON) return;
+            lastBackupJSON = json;
+            native.postMessage(JSON.stringify(Object.assign({ savedAt: Date.now() }, body)));
+        }
+
+        // called by the wrapper when the app quits; returns the snapshot for a synchronous write
+        function finalBackupSnapshot() {
+            if (!backupsReady) return null;
+            try { saveCurrentTab(); } catch (e) {}
+            return JSON.stringify(Object.assign({ savedAt: Date.now() }, buildBackupSnapshot()));
+        }
+
+        // called by the wrapper once after load with the last on-disk backup ('' if none)
+        function checkRecovery(json) {
+            let backup = null;
+            try { backup = json ? JSON.parse(json) : null; } catch (e) {}
+            try {
+                if (backup && Array.isArray(backup.tabs)) offerRecovery(backup);
+            } finally {
+                backupsReady = true;
+                requestBackup(true);
+            }
+        }
+
+        function offerRecovery(backup) {
+            const hasText = s => !!(s && s.trim());
+            const missing = [], newer = [];
+            backup.tabs.forEach(bt => {
+                if (!hasText(bt.content)) return;
+                const local = tabs.find(t => t.id === bt.id);
+                if (!local) missing.push(bt);
+                else if (bt.content !== local.content && (bt.updatedAt || 0) > (local.updatedAt || 0)) newer.push(bt);
+            });
+            const localNotepadEmpty = !notepadPages.some(hasText);
+            const restoreNotepad = localNotepadEmpty && Array.isArray(backup.notepad) && backup.notepad.some(hasText);
+            const restoreAlbum = loadAlbum().length === 0 && Array.isArray(backup.textAlbum) && backup.textAlbum.length > 0;
+            // missing tabs alone are normal if they were closed on purpose — only offer them
+            // when the store looks wiped (no local writing at all) or when newer copies exist
+            const localHasWriting = tabs.some(t => hasText(t.content));
+            const offerMissing = missing.length > 0 && !localHasWriting;
+            if (!offerMissing && newer.length === 0 && !restoreNotepad && !restoreAlbum) return;
+
+            const parts = [];
+            if (offerMissing) parts.push(missing.length + ' document' + (missing.length > 1 ? 's' : '') + ' that are no longer open');
+            if (newer.length) parts.push(newer.length + ' document' + (newer.length > 1 ? 's' : '') + ' with newer text than what is open');
+            if (restoreNotepad) parts.push('your Note Pad');
+            if (restoreAlbum) parts.push('your Text Album (' + backup.textAlbum.length + ')');
+            const when = backup.savedAt ? new Date(backup.savedAt).toLocaleString() : 'an earlier session';
+            const ok = confirm('Recover unsaved work?\n\nA backup from ' + when + ' has ' + parts.join(', ') +
+                '.\n\nRecovered documents open as new tabs; nothing currently open is changed.');
+            if (!ok) return;
+
+            if (activeTabId) saveCurrentTab();
+            // drop the lone blank tab a wiped store starts with
+            if (offerMissing && tabs.length === 1 && !hasText(tabs[0].content) && !hasText(tabs[0].title)) tabs = [];
+            const add = (bt, suffix) => {
+                const id = tabs.some(t => t.id === bt.id) ? bt.id + 'r' + Date.now().toString(36) : bt.id;
+                tabs.push({ id, title: (bt.title || 'untitled') + suffix, content: bt.content, fsPath: suffix ? null : (bt.fsPath || null), updatedAt: Date.now() });
+                undoStacks[id] = []; redoStacks[id] = [];
+                return id;
+            };
+            let firstId = null;
+            if (offerMissing) missing.forEach(bt => { const id = add(bt, ''); firstId = firstId || id; });
+            newer.forEach(bt => { const id = add(bt, ' (recovered)'); firstId = firstId || id; });
+            if (firstId) activeTabId = firstId;
+            if (restoreNotepad) { notepadPages = backup.notepad.slice(); notepadIndex = 0; saveNotepad(); showNotepadPage(); }
+            if (restoreAlbum) saveAlbum(backup.textAlbum);
+            saveTabs();
+            renderTabs();
+            loadActiveTab();
+            updateWordCount();
+            showToast('recovered from backup');
+        }
+
+        if (nativeHandler('backup')) {
+            setInterval(() => requestBackup(false), 60000);
+            document.addEventListener('visibilitychange', () => { if (document.hidden) requestBackup(false); });
+            window.addEventListener('blur', () => requestBackup(false));
+        }
 
         /* ══════════════════════════════════════
            Init

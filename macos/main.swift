@@ -3,6 +3,8 @@
 //
 // Bridges exposed to JavaScript (window.webkit.messageHandlers):
 //   print    — body: {top, bottom, left, right} margins in points; runs NSPrintOperation
+//   backup   — body: JSON string snapshot {savedAt, tabs, notepad, textAlbum}; written to
+//              ~/Documents/Word Processor Backups (latest.json, readable .txt copies, hourly snapshots)
 //   saveFile — body: {name, tabId?, path?, text? | base64?}
 //              with path: writes directly (Cmd+S save-back); without: shows NSSavePanel
 //   openFile — shows NSOpenPanel, loads files into tabs (keeps path for save-back)
@@ -35,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         config.userContentController.add(self, name: "print")
         config.userContentController.add(self, name: "saveFile")
         config.userContentController.add(self, name: "openFile")
+        config.userContentController.add(self, name: "backup")
 
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
@@ -77,6 +80,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         pageLoaded = true
         for js in pendingJS { evalJS(js.body, js.args) }
         pendingJS = []
+
+        // crash/data-loss recovery: hand the last on-disk backup to the page. The page keeps
+        // disk backups switched off until this check has run, so a wiped store can't
+        // overwrite a good backup with empty tabs.
+        let latest = backupDir.appendingPathComponent("latest.json")
+        let backupJSON = (try? String(contentsOf: latest, encoding: .utf8)) ?? ""
+        runJS("if (typeof checkRecovery === 'function') checkRecovery(json);", ["json": backupJSON])
 
         // test hook: only active alongside the /tmp/wp-debug-on flag file
         if FileManager.default.fileExists(atPath: "/tmp/wp-debug-on"),
@@ -235,8 +245,143 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         case "print": handlePrint(message.body)
         case "saveFile": handleSaveFile(message.body)
         case "openFile": menuOpen()
+        case "backup":
+            if let json = message.body as? String { writeBackup(json) }
         default: break
         }
+    }
+
+    // MARK: - Backups (~/Documents/Word Processor Backups)
+
+    private let backupQueue = DispatchQueue(label: "wordprocessor.backup", qos: .utility)
+    private var firstBackupThisRun = true  // only touched on backupQueue
+
+    private var backupDir: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Word Processor Backups", isDirectory: true)
+    }
+
+    private func writeBackup(_ json: String, sync: Bool = false) {
+        let work = { self.writeBackupNow(json) }
+        if sync { backupQueue.sync(execute: work) } else { backupQueue.async(execute: work) }
+    }
+
+    private func writeBackupNow(_ json: String) {
+        let fm = FileManager.default
+        guard let data = json.data(using: .utf8),
+              let snap = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            debugLog("backup: bad JSON"); return
+        }
+        let tabs = snap["tabs"] as? [[String: Any]] ?? []
+        do {
+            let dir = backupDir
+            let snapshots = dir.appendingPathComponent("Snapshots", isDirectory: true)
+            try fm.createDirectory(at: snapshots, withIntermediateDirectories: true)
+
+            let latest = dir.appendingPathComponent("latest.json")
+            let stamp = DateFormatter()
+
+            // first backup of this run: keep whatever was on disk before launch as its own
+            // snapshot, so declining a recovery (or a wiped store) can never lose it
+            if firstBackupThisRun {
+                firstBackupThisRun = false
+                if fm.fileExists(atPath: latest.path) {
+                    stamp.dateFormat = "yyyy-MM-dd HHmm"
+                    let keep = snapshots.appendingPathComponent(stamp.string(from: Date()) + " before launch.json")
+                    try? fm.removeItem(at: keep)
+                    try? fm.copyItem(at: latest, to: keep)
+                }
+            }
+            try data.write(to: latest, options: .atomic)
+
+            // hourly snapshot, keep the newest 48
+            stamp.dateFormat = "yyyy-MM-dd HH'00'"
+            try data.write(to: snapshots.appendingPathComponent(stamp.string(from: Date()) + ".json"), options: .atomic)
+            let old = (try? fm.contentsOfDirectory(at: snapshots, includingPropertiesForKeys: nil)) ?? []
+            let sorted = old.filter { $0.pathExtension == "json" }.sorted { $0.lastPathComponent > $1.lastPathComponent }
+            for url in sorted.dropFirst(48) { try? fm.removeItem(at: url) }
+
+            // human-readable copies of every open tab
+            let readable = dir.appendingPathComponent("Open Tabs", isDirectory: true)
+            try? fm.removeItem(at: readable)
+            try fm.createDirectory(at: readable, withIntermediateDirectories: true)
+            var used = Set<String>()
+            for (i, tab) in tabs.enumerated() {
+                var base = sanitize((tab["title"] as? String) ?? "")
+                if base.isEmpty { base = "Untitled \(i + 1)" }
+                var name = base
+                var n = 2
+                while used.contains(name.lowercased()) { name = "\(base) \(n)"; n += 1 }
+                used.insert(name.lowercased())
+                try ((tab["content"] as? String) ?? "").write(to: readable.appendingPathComponent(name + ".txt"),
+                                                             atomically: true, encoding: .utf8)
+            }
+            if let pages = snap["notepad"] as? [String], pages.contains(where: { !$0.isEmpty }) {
+                let text = pages.enumerated().map { "── Page \($0.offset + 1) ──\n\($0.element)" }.joined(separator: "\n\n")
+                try text.write(to: readable.appendingPathComponent("_Note Pad.txt"), atomically: true, encoding: .utf8)
+            }
+            if let album = snap["textAlbum"] as? [Any], !album.isEmpty {
+                let text = album.map { item -> String in
+                    if let s = item as? String { return s }
+                    if let d = item as? [String: Any] { return (d["text"] as? String) ?? "\(d)" }
+                    return "\(item)"
+                }.joined(separator: "\n\n────────\n\n")
+                try text.write(to: readable.appendingPathComponent("_Text Album.txt"), atomically: true, encoding: .utf8)
+            }
+            debugLog("backup: wrote \(tabs.count) tabs")
+        } catch {
+            debugLog("backup failed: \(error)")
+            DispatchQueue.main.async { self.showJSToast("Backup failed: \(error.localizedDescription)") }
+        }
+    }
+
+    private func sanitize(_ s: String) -> String {
+        let bad = CharacterSet(charactersIn: "/\\:*?\"<>|\n\r\t")
+        let cleaned = s.components(separatedBy: bad).joined(separator: "-")
+            .trimmingCharacters(in: .whitespaces)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        return String(cleaned.prefix(80))
+    }
+
+    // final backup on quit: ask the page for a fresh snapshot, write it, then quit
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard pageLoaded else { return .terminateNow }
+        var replied = false
+        let finish = {
+            guard !replied else { return }
+            replied = true
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        webView.callAsyncJavaScript("return (typeof finalBackupSnapshot === 'function') ? finalBackupSnapshot() : null;",
+                                    arguments: [:], in: nil, in: .page) { result in
+            if case .success(let value) = result, let json = value as? String, !json.isEmpty {
+                self.writeBackup(json, sync: true)
+            }
+            finish()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { finish() }
+        return .terminateLater
+    }
+
+    // MARK: - JS alert()/confirm() as native dialogs
+
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.addButton(withTitle: "OK")
+        alert.beginSheetModal(for: window) { _ in completionHandler() }
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        let alert = NSAlert()
+        let parts = message.components(separatedBy: "\n\n")
+        alert.messageText = parts[0]
+        if parts.count > 1 { alert.informativeText = parts.dropFirst().joined(separator: "\n\n") }
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        alert.beginSheetModal(for: window) { response in completionHandler(response == .alertFirstButtonReturn) }
     }
 
     // MARK: - Printing
